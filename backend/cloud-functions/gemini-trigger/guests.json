@@ -1,0 +1,92 @@
+[
+  {
+    "guest_id": "g001",
+    "name": "Aiko Tanaka",
+    "room": "412",
+    "floor": 4,
+    "language": "ja",
+    "mobility_impaired": true,
+    "fcm_token": "mock_token_001"
+  },
+  {
+    "guest_id": "g002",
+    "name": "Rajesh Kumar",
+    "room": "308",
+    "floor": 3,
+    "language": "hi",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_002"
+  },
+  {
+    "guest_id": "g003",
+    "name": "Emily Johnson",
+    "room": "501",
+    "floor": 5,
+    "language": "en",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_003"
+  },
+  {
+    "guest_id": "g004",
+    "name": "Pierre Dubois",
+    "room": "601",
+    "floor": 6,
+    "language": "fr",
+    "mobility_impaired": true,
+    "fcm_token": "mock_token_004"
+  },
+  {
+    "guest_id": "g005",
+    "name": "Maria Garcia",
+    "room": "312",
+    "floor": 3,
+    "language": "es",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_005"
+  },
+  {
+    "guest_id": "g006",
+    "name": "John Smith",
+    "room": "401",
+    "floor": 4,
+    "language": "en",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_006"
+  },
+  {
+    "guest_id": "g007",
+    "name": "Yuki Sato",
+    "room": "511",
+    "floor": 5,
+    "language": "ja",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_007"
+  },
+  {
+    "guest_id": "g008",
+    "name": "Sarah Williams",
+    "room": "410",
+    "floor": 4,
+    "language": "en",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_008"
+  },
+  {
+    "guest_id": "g009",
+    "name": "Carlos Rodriguez",
+    "room": "301",
+    "floor": 3,
+    "language": "es",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_009"
+  },
+  {
+    "guest_id": "g010",
+    "name": "Anita Patel",
+    "room": "608",
+    "floor": 6,
+    "language": "hi",
+    "mobility_impaired": false,
+    "fcm_token": "mock_token_010"
+  }
+]

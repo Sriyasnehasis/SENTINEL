@@ -5,8 +5,13 @@ import {
   addDoc, serverTimestamp
 } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
-import { Shield, Activity, AlertTriangle, CheckCircle, Wifi, Clock } from "lucide-react";
+import { Shield, Activity, AlertTriangle, CheckCircle, Wifi, Clock, MapPin } from "lucide-react";
 import IncidentTable from "../components/IncidentTable";
+import SitRepPanel from "../components/SitRepPanel";
+import LiveMap from "../components/LiveMap";
+import DialogflowWidget from "../components/DialogflowWidget";
+import ZoneClearButton from "../components/ZoneClearButton";
+import DemoButton from "../components/DemoButton";
 
 export default function Home() {
   const { user } = useAuth();
@@ -136,6 +141,91 @@ export default function Home() {
         </div>
         <IncidentTable />
       </div>
+
+      {/* AI Situation Report Panel */}
+      <div className="glass-card" style={{ padding: "1.5rem", marginTop: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <div>
+            <h2 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "0.25rem" }}>
+              🤖 AI Situation Report
+            </h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+              Gemini-powered crisis analysis and evacuation guidance
+            </p>
+          </div>
+          <div style={{
+            display: "flex", alignItems: "center", gap: "0.4rem",
+            color: "#6366f1", fontSize: "0.8rem", fontWeight: 600,
+          }}>
+            <span style={{
+              width: "8px", height: "8px", borderRadius: "50%",
+              background: "#6366f1",
+              boxShadow: "0 0 6px #6366f1",
+              animation: "pulse 2s infinite",
+              display: "inline-block",
+            }} />
+            Gemini 2.0 Flash
+          </div>
+        </div>
+        <SitRepPanel />
+      </div>
+
+      {/* Live Map & Evacuation Routing */}
+      <div className="glass-card" style={{ padding: "1.5rem", marginTop: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <div>
+            <h2 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "0.25rem" }}>
+              <MapPin size={20} style={{ verticalAlign: "middle", marginRight: "0.5rem" }} />
+              Live Evacuation Map
+            </h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+              Real-time incident tracking with dynamic evacuation route calculation
+            </p>
+          </div>
+          <div style={{
+            display: "flex", alignItems: "center", gap: "0.4rem",
+            color: "#22c55e", fontSize: "0.8rem", fontWeight: 600,
+          }}>
+            <span style={{
+              width: "8px", height: "8px", borderRadius: "50%",
+              background: "#22c55e",
+              boxShadow: "0 0 6px #22c55e",
+              animation: "pulse 2s infinite",
+              display: "inline-block",
+            }} />
+            Dijkstra Routing Active
+          </div>
+        </div>
+        <LiveMap />
+      </div>
+
+      {/* Emergency Controls */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", marginTop: "1.5rem" }}>
+        {/* Demo Control Panel */}
+        <div className="glass-card" style={{ padding: "1.5rem" }}>
+          <h2 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "1rem" }}>
+            🎬 Demo Control
+          </h2>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+            Run the scripted 90-second demo scenario for judges
+          </p>
+          <DemoButton />
+        </div>
+
+        {/* Zone Clear Control */}
+        <div className="glass-card" style={{ padding: "1.5rem" }}>
+          <h2 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "1rem" }}>
+            ✅ Zone Clearance
+          </h2>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+            Mark zones as cleared and play multilingual announcements
+          </p>
+          <ZoneClearButton staffId={user?.uid || "demo-staff"} zone="4-EastWing" />
+        </div>
+      </div>
+
+      {/* Dialogflow Voice Widget */}
+      <DialogflowWidget />
 
       {/* Footer */}
       <div style={{ marginTop: "1.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.75rem" }}>
