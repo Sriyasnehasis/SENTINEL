@@ -1,8 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { getMessaging } from "firebase/messaging";
 
-// TODO: Replace with your actual Firebase config from the Firebase Console
 const firebaseConfig = {
   apiKey: "AIzaSyAAk_se3CWtZ2lSiNOoWNXDZqBOfgRYnIY",
   authDomain: "sentinel-5f9c1.firebaseapp.com",
@@ -16,3 +16,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const messaging = getMessaging(app);
+
+// Enable offline persistence — critical for demo resilience during network drops
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === "failed-precondition") {
+    console.warn("Offline persistence failed: multiple tabs open");
+  } else if (err.code === "unimplemented") {
+    console.warn("Offline persistence not supported in this browser");
+  }
+});
