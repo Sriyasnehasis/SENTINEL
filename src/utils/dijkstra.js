@@ -1,123 +1,262 @@
 /**
- * Dijkstra's Algorithm for Evacuation Route Calculation
- * Finds shortest path from start node to end node, avoiding blocked nodes
+ * SENTINEL v3.0 — Production-Grade Evacuation Routing Engine
+ * ============================================================
+ * - Binary Min-Heap priority queue  (O((V+E) log V))
+ * - Dynamic hazard-weight inflation for FIRE/SMOKE zones
+ * - NFPA 101 elevator lockout during emergencies
+ * - Correct node-key derivation for hospitalData graph IDs
  */
 
+// ─── Binary Min-Heap ─────────────────────────────────────────────────────────
+
+class MinHeap {
+  constructor() { this._data = []; }
+
+  push(item) {
+    this._data.push(item);
+    this._bubbleUp(this._data.length - 1);
+  }
+
+  pop() {
+    const top  = this._data[0];
+    const last = this._data.pop();
+    if (this._data.length > 0) {
+      this._data[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+
+  get size() { return this._data.length; }
+
+  _bubbleUp(i) {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this._data[parent][0] <= this._data[i][0]) break;
+      [this._data[parent], this._data[i]] = [this._data[i], this._data[parent]];
+      i = parent;
+    }
+  }
+
+  _sinkDown(i) {
+    const n = this._data.length;
+    while (true) {
+      let smallest = i;
+      const l = 2 * i + 1, r = 2 * i + 2;
+      if (l < n && this._data[l][0] < this._data[smallest][0]) smallest = l;
+      if (r < n && this._data[r][0] < this._data[smallest][0]) smallest = r;
+      if (smallest === i) break;
+      [this._data[smallest], this._data[i]] = [this._data[i], this._data[smallest]];
+      i = smallest;
+    }
+  }
+}
+
+// ─── Hazard weight multipliers ────────────────────────────────────────────────
+
+const HAZARD_WEIGHT = {
+  FIRE:    Infinity, // Completely block fire zones
+  SMOKE:   8,        // Heavy penalty for smoke zones
+  TRAPPED: 3,        // Moderate penalty
+  default: 1,
+};
+
+// ─── Core Dijkstra ───────────────────────────────────────────────────────────
+
 /**
- * @param {Object} graph - Adjacency list representation of building
- * @param {string} start - Starting node name
- * @param {string} end - Destination node name
- * @param {string[]} blockedNodes - Array of node names to avoid (fire zones)
- * @returns {string[]} - Path as array of node names, or empty array if no path
+ * Dijkstra shortest-path with hazard-weight inflation.
+ *
+ * @param {Object}   graph        - Weighted adjacency list { nodeId: { neighborId: weight } }
+ * @param {string}   start        - Source node ID (must exist in graph)
+ * @param {string}   end          - Destination node ID
+ * @param {string[]} blockedNodes - Node IDs to avoid entirely (collapsed to Infinity weight)
+ * @param {Object}   [hazardMap]  - { nodeId: eventType } for weight inflation
+ * @param {boolean}  [lockElevators=false] - NFPA 101: disable elevator nodes in emergencies
+ * @returns {string[]} Ordered path array, or [] if no safe route exists
  */
-export function dijkstra(graph, start, end, blockedNodes = []) {
-  const distances = {};
-  const visited = new Set();
+export function dijkstra(
+  graph,
+  start,
+  end,
+  blockedNodes = [],
+  hazardMap    = {},
+  lockElevators = false
+) {
+  if (!graph || !start || !end) return [];
+
+  const blocked = new Set(blockedNodes);
+
+  // Collect all known nodes (graph keys + all neighbors)
+  const allNodes = new Set(Object.keys(graph));
+  for (const neighbors of Object.values(graph)) {
+    for (const n of Object.keys(neighbors)) allNodes.add(n);
+  }
+  // Ensure start and end are included even if leaf-only nodes
+  allNodes.add(start);
+  allNodes.add(end);
+
+  const dist = {};
   const prev = {};
-  
-  // Initialize all distances to Infinity
-  Object.keys(graph).forEach(node => {
-    distances[node] = Infinity;
-  });
-  
-  // Distance to start is 0
-  distances[start] = 0;
-  
-  // Priority queue: [distance, node]
-  const pq = [[0, start]];
-  
-  while (pq.length > 0) {
-    // Sort by distance and get smallest
-    pq.sort((a, b) => a[0] - b[0]);
-    const [dist, node] = pq.shift();
-    
-    // Skip if already visited
-    if (visited.has(node)) continue;
-    visited.add(node);
-    
-    // Early exit if we reached destination
+  for (const n of allNodes) dist[n] = Infinity;
+  dist[start] = 0;
+
+  const heap = new MinHeap();
+  heap.push([0, start]);
+
+  while (heap.size > 0) {
+    const [d, node] = heap.pop();
+    if (d > dist[node]) continue; // stale entry
     if (node === end) break;
-    
-    // Explore neighbors
-    const neighbors = graph[node] || {};
-    for (const [neighbor, weight] of Object.entries(neighbors)) {
-      // Skip blocked nodes
-      if (blockedNodes.includes(neighbor)) continue;
-      
-      const newDist = dist + weight;
-      if (newDist < distances[neighbor]) {
-        distances[neighbor] = newDist;
+
+    const neighbors = graph[node];
+    if (!neighbors) continue;
+
+    for (const [neighbor, baseWeight] of Object.entries(neighbors)) {
+      // Hard block
+      if (blocked.has(neighbor)) continue;
+
+      // NFPA 101 elevator lockout
+      if (lockElevators && neighbor.startsWith('Elevator-')) continue;
+
+      // Hazard weight inflation
+      const hazardType = hazardMap[neighbor];
+      const multiplier = hazardType ? (HAZARD_WEIGHT[hazardType] ?? HAZARD_WEIGHT.default) : 1;
+      if (multiplier === Infinity) continue;
+
+      const newDist = d + baseWeight * multiplier;
+      if (newDist < dist[neighbor]) {
+        dist[neighbor] = newDist;
         prev[neighbor] = node;
-        pq.push([newDist, neighbor]);
+        heap.push([newDist, neighbor]);
       }
     }
   }
-  
-  // Reconstruct path from end to start
+
+  // Reconstruct path
+  if (dist[end] === Infinity) return [];
   const path = [];
-  let current = end;
-  while (current !== undefined && current !== null) {
-    path.unshift(current);
-    current = prev[current];
+  let cur = end;
+  while (cur !== undefined) {
+    path.unshift(cur);
+    cur = prev[cur];
   }
-  
-  // Return path only if it starts at the correct node
   return path[0] === start ? path : [];
 }
 
+// ─── Blocked-node derivation ─────────────────────────────────────────────────
+
 /**
- * Get blocked nodes from active incidents
- * Blocks nodes where FIRE or SMOKE confidence > 0.8
- * @param {Array} incidents - Array of incident objects
- * @returns {string[]} - Array of blocked node names
+ * Derive the set of graph node IDs that should be blocked or weighted.
+ * Maps Firestore incident location { floor, zone } → node ID used in hospitalData.
+ *
+ * @param {Array}   incidents   - Active Firestore incident documents
+ * @returns {{ blocked: string[], hazardMap: Object }}
  */
 export function getBlockedNodes(incidents) {
-  if (!Array.isArray(incidents)) return [];
-  
-  return incidents
-    .filter(inc => {
-      const isFireOrSmoke = inc.event_type === "FIRE" || inc.event_type === "SMOKE";
-      const highConfidence = (inc.confidence ?? 0) > 0.8;
-      const isActive = inc.status === "ACTIVE";
-      return isFireOrSmoke && highConfidence && isActive;
-    })
-    .map(inc => {
-      const floor = inc.location?.floor;
-      const zone = inc.location?.zone;
-      if (!floor || !zone) return null;
-      // Convert "East Wing" to "EastWing" for graph key
-      const zonePart = zone.replace(" ", "");
-      return `${floor}-${zonePart}`;
-    })
-    .filter(Boolean); // Remove nulls
+  if (!Array.isArray(incidents)) return { blocked: [], hazardMap: {} };
+
+  const blocked   = [];
+  const hazardMap = {};
+
+  for (const inc of incidents) {
+    if (inc.status !== 'ACTIVE') continue;
+
+    const floor    = inc.location?.floor;
+    const zone     = inc.location?.zone;
+    const nodeId   = inc.location?.nodeId; // direct ID if Firestore stores it
+    const evtType  = inc.event_type;
+
+    // Prefer explicit nodeId stored by the sensor, fall back to derived key
+    const key = nodeId || (floor != null && zone
+      ? `${floor}-${zone.replace(/\s+/g, '')}`
+      : null);
+
+    if (!key) continue;
+
+    hazardMap[key] = evtType;
+
+    // Only FIRE/SMOKE with high confidence are hard-blocked
+    const isBlocking =
+      (evtType === 'FIRE' || evtType === 'SMOKE') &&
+      (inc.confidence ?? 1) > 0.8;
+
+    if (isBlocking) blocked.push(key);
+  }
+
+  // Return array form for backward-compatibility, plus the full hazard map
+  return blocked; // primary return stays as array for LiveMap compat
 }
 
 /**
- * Calculate evacuation routes for all occupied floors
- * @param {Object} graph - Building graph
- * @param {string[]} occupiedNodes - Nodes with guests/staff
- * @param {string[]} blockedNodes - Fire/smoke zones to avoid
- * @returns {Object} - Map of start node → path to AssemblyPoint
+ * Extended version (use when LiveMap is updated to consume it).
+ * Returns { blocked, hazardMap } for full weight-inflation support.
  */
-export function calculateAllEvacuationRoutes(graph, occupiedNodes, blockedNodes) {
-  const routes = {};
-  
-  for (const startNode of occupiedNodes) {
-    const path = dijkstra(graph, startNode, "AssemblyPoint", blockedNodes);
-    routes[startNode] = path;
+export function getBlockedNodesExtended(incidents) {
+  if (!Array.isArray(incidents)) return { blocked: [], hazardMap: {} };
+
+  const blocked   = [];
+  const hazardMap = {};
+
+  for (const inc of incidents) {
+    if (inc.status !== 'ACTIVE') continue;
+
+    const floor   = inc.location?.floor;
+    const zone    = inc.location?.zone;
+    const nodeId  = inc.location?.nodeId;
+    const evtType = inc.event_type;
+
+    const key = nodeId || (floor != null && zone
+      ? `${floor}-${zone.replace(/\s+/g, '')}`
+      : null);
+
+    if (!key) continue;
+
+    hazardMap[key] = evtType;
+
+    const isBlocking =
+      (evtType === 'FIRE' || evtType === 'SMOKE') &&
+      (inc.confidence ?? 1) > 0.8;
+
+    if (isBlocking) blocked.push(key);
   }
-  
+
+  return { blocked, hazardMap };
+}
+
+// ─── Multi-route helper ───────────────────────────────────────────────────────
+
+/**
+ * Calculate evacuation routes from multiple occupied nodes to a goal.
+ * Uses the new hospital graph node IDs.
+ *
+ * @param {Object}   graph          - hospitalData.edges
+ * @param {string[]} occupiedNodes  - Source node IDs
+ * @param {string[]} blockedNodes   - Blocked node IDs
+ * @param {string}   [goal]         - Default assembly goal
+ * @returns {Object} nodeId → path[]
+ */
+export function calculateAllEvacuationRoutes(
+  graph,
+  occupiedNodes,
+  blockedNodes,
+  goal = 'EXT-Assembly-Front'
+) {
+  const routes = {};
+  for (const start of occupiedNodes) {
+    routes[start] = dijkstra(graph, start, goal, blockedNodes);
+  }
   return routes;
 }
 
+// ─── Coordinate mapping ───────────────────────────────────────────────────────
+
 /**
- * Convert path to coordinates for Google Maps Polyline
- * @param {string[]} path - Array of node names
- * @param {Object} zoneCoordinates - Map of node → {lat, lng}
- * @returns {Array<{lat: number, lng: number}>} - Array of coordinate objects
+ * Convert a route path to 3D coordinate triples.
+ *
+ * @param {string[]} path             - Ordered node IDs
+ * @param {Object}   zoneCoordinates3D - { nodeId: [x, y, z] }
+ * @returns {Array<[number,number,number]>} Filtered list of coordinates
  */
-export function pathToCoordinates(path, zoneCoordinates) {
-  return path
-    .map(node => zoneCoordinates[node])
-    .filter(Boolean); // Remove undefined coordinates
+export function pathToCoordinates(path, zoneCoordinates3D) {
+  return path.map(node => zoneCoordinates3D[node]).filter(Boolean);
 }

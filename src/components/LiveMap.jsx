@@ -88,7 +88,8 @@ class CanvasErrorBoundary extends Component {
 // ─── Configuration ─────────────────────────────────────────────────────────────
 
 const SIMULATION_START = "MT-4-Center";
-const ASSEMBLY_GOALS = ["Assembly-Front", "Assembly-Rear", "Assembly-Helipad"];
+// Assembly goal node IDs — must exist in the new hospitalData graph
+const ASSEMBLY_GOALS = ["EXT-Assembly-Front", "EXT-Assembly-Rear", "MT-5-Helipad"];
 
 // Event type configuration
 const EVENT_CONFIG = {
@@ -126,13 +127,13 @@ function IntelligentCamera({ activeTarget, hasAlert }) {
         true
       );
     } else {
-      // Return to overview position
+      // Return to overview position — sized for the larger v3 campus
       controls.setLookAt(
         0,
-        28,
-        45,
+        55,
+        90,
         0,
-        8,
+        12,
         0,
         true
       );
@@ -141,11 +142,11 @@ function IntelligentCamera({ activeTarget, hasAlert }) {
 
   return (
     <>
-      <CameraControls 
-        ref={cameraRef} 
-        makeDefault 
-        minDistance={15}
-        maxDistance={60}
+      <CameraControls
+        ref={cameraRef}
+        makeDefault
+        minDistance={20}
+        maxDistance={160}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 2.2}
         enableDamping={true}
@@ -473,7 +474,7 @@ export default function LiveMap() {
         {/* 3D Canvas */}
         <Canvas 
           shadows={{ type: THREE.PCFShadowMap }} 
-          camera={{ position: [0, 28, 45], fov: 45 }}
+          camera={{ position: [0, 55, 90], fov: 42 }}
           gl={{ 
             antialias: true, 
             alpha: false,
