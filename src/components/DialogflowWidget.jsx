@@ -2,28 +2,36 @@ import { useEffect } from "react";
 
 /**
  * DialogflowWidget — Embeds Google Dialogflow CX Messenger
- * Allows users to report emergencies via voice/text chat
- * 
- * Setup: Create Dialogflow CX agent and replace AGENT_ID below
+ *
+ * NOTE: AGENT_ID is a placeholder. The widget will show a 404 until
+ * replaced with a real Dialogflow CX agent ID.
+ * Set AGENT_ID = null to fully disable the widget.
  */
-export default function DialogflowWidget() {
-  // Replace with your actual Dialogflow CX Agent ID
-  const AGENT_ID = "YOUR_DIALOGFLOW_CX_AGENT_ID";
 
+const AGENT_ID = null; // Replace with real agent ID, e.g. "abc123-...-def"
+const SCRIPT_ID = "dialogflow-bootstrap-script";
+
+export default function DialogflowWidget() {
   useEffect(() => {
-    // Load Dialogflow Messenger script
+    // Skip entirely if no agent configured
+    if (!AGENT_ID) return;
+
+    // Prevent duplicate script injection (survives HMR)
+    if (document.getElementById(SCRIPT_ID)) return;
+
     const script = document.createElement("script");
-    script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
+    script.id = SCRIPT_ID;
+    script.src =
+      "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=4";
     script.async = true;
     document.body.appendChild(script);
 
-    return () => {
-      // Cleanup on unmount
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
+    // No cleanup — removing the script does NOT un-register the custom element
+    // and re-injecting it causes the NotSupportedError. Leave it in the DOM.
   }, []);
+
+  // Render nothing when no agent is configured
+  if (!AGENT_ID) return null;
 
   return (
     <df-messenger
@@ -35,7 +43,7 @@ export default function DialogflowWidget() {
         position: "fixed",
         bottom: "20px",
         right: "20px",
-        zIndex: 9999
+        zIndex: 9999,
       }}
     />
   );

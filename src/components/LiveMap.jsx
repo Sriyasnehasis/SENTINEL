@@ -7,7 +7,7 @@
  * - Dynamic evacuation route with animated path segments
  * - Intelligent camera targeting on active incidents
  * - Multiple assembly points with automatic route optimization
- * 
+ *
  * Production Features:
  * - Physically-based rendering (PBR) materials
  * - Reflective ground plane with realistic shadows
@@ -15,19 +15,75 @@
  * - Debounced route recalculation
  * - Responsive HUD overlay
  * - Keyboard navigation support
- * 
+ *
  * Note: Requires @react-three/fiber, @react-three/drei, and three packages
  */
 
-import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback, Component } from "react";
 import { Canvas } from '@react-three/fiber';
 import { Stars, CameraControls, Environment } from '@react-three/drei';
 import { db } from "../firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 import { dijkstra, getBlockedNodes } from "../utils/dijkstra";
+import * as THREE from "three";
 import { buildingGraph, zoneCoordinates3D } from "../utils/buildingGraph";
 import { BuildingModel } from "./Building3D";
-import { AlertTriangle, Target, Navigation, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Target, Navigation, ShieldAlert, RefreshCw } from "lucide-react";
+
+// ─── Canvas Error Boundary ────────────────────────────────────────────────────
+
+class CanvasErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("[3D Canvas] Caught error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl p-8 text-center"
+          style={{
+            height: "650px",
+            background: "radial-gradient(ellipse at center, #1a0a0a 0%, #030508 100%)",
+            border: "1px solid rgba(239,68,68,0.3)",
+          }}
+        >
+          <AlertTriangle size={56} style={{ color: "#ef4444", marginBottom: "1rem" }} />
+          <h3 style={{ color: "#f87171", fontWeight: 700, fontSize: "1.2rem", marginBottom: "0.5rem" }}>
+            3D Renderer Crashed
+          </h3>
+          <p style={{ color: "rgba(248,113,113,0.6)", fontSize: "0.85rem", maxWidth: "400px", marginBottom: "1.5rem" }}>
+            {this.state.error?.message || "WebGL context was lost. This can happen due to GPU driver issues or too many 3D windows."}
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            style={{
+              display: "flex", alignItems: "center", gap: "0.5rem",
+              padding: "0.6rem 1.5rem", borderRadius: "8px",
+              background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.4)",
+              color: "#f87171", fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            <RefreshCw size={16} />
+            Reload 3D View
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
 
@@ -406,83 +462,91 @@ export default function LiveMap() {
   const hasAlert = incidents.length > 0;
 
   return (
-    <div
-      className="relative w-full rounded-2xl overflow-hidden shadow-2xl"
-      style={{ 
-        height: "650px", 
-        background: "radial-gradient(ellipse at center, #0B1021 0%, #030508 100%)" 
-      }}
-    >
-      {/* 3D Canvas */}
-      <Canvas 
-        shadows 
-        camera={{ position: [0, 28, 45], fov: 45 }}
-        gl={{ 
-          antialias: true, 
-          alpha: false,
-          powerPreference: "high-performance"
+    <CanvasErrorBoundary>
+      <div
+        className="relative w-full rounded-2xl overflow-hidden shadow-2xl"
+        style={{ 
+          height: "650px", 
+          background: "radial-gradient(ellipse at center, #0B1021 0%, #030508 100%)" 
         }}
-        dpr={[1, 2]}
       >
-        {/* Background */}
-        <color attach="background" args={["#030508"]} />
+        {/* 3D Canvas */}
+        <Canvas 
+          shadows={{ type: THREE.PCFShadowMap }} 
+          camera={{ position: [0, 28, 45], fov: 45 }}
+          gl={{ 
+            antialias: true, 
+            alpha: false,
+            powerPreference: "high-performance"
+          }}
+          dpr={[1, 1.5]}
+          onCreated={({ gl }) => {
+            gl.domElement.addEventListener("webglcontextlost", (e) => {
+              e.preventDefault();
+              console.warn("[WebGL] Context lost — will attempt restore");
+            });
+          }}
+        >
+          {/* Background */}
+          <color attach="background" args={["#030508"]} />
+          
+          {/* Atmospheric stars */}
+          <Stars 
+            radius={150} 
+            depth={80} 
+            count={6000} 
+            factor={5} 
+            saturation={0.2} 
+            fade 
+            speed={0.8} 
+          />
+
+          {/* Lighting setup */}
+          <ambientLight intensity={0.35} />
+          <pointLight position={[20, 35, 15]} intensity={2.5} color="#00E5FF" castShadow />
+          <pointLight position={[-20, 25, -15]} intensity={1.5} color="#AA00FF" />
+          <pointLight position={[0, -8, 15]} intensity={0.8} color="#651FFF" />
+          
+          {/* Directional light for shadows */}
+          <directionalLight 
+            position={[10, 20, 10]} 
+            intensity={1.2} 
+            castShadow
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+          />
+
+          {/* Optional environment map for realistic reflections */}
+          <Environment preset="city" />
+
+          {/* Building Model */}
+          <BuildingModel 
+            activeIncidents={incidents} 
+            evacuationRoute={evacuationRoute} 
+          />
+          
+          {/* Intelligent Camera */}
+          <IntelligentCamera activeTarget={activeTarget} hasAlert={hasAlert} />
+        </Canvas>
+
+        {/* HUD Overlays */}
+        <AlertIndicator hasAlert={hasAlert} incidentCount={incidents.length} />
         
-        {/* Atmospheric stars */}
-        <Stars 
-          radius={150} 
-          depth={80} 
-          count={8000} 
-          factor={5} 
-          saturation={0.2} 
-          fade 
-          speed={0.8} 
+        <RouteHUD 
+          routePath={evacuationRoute}
+          bestAssembly={bestAssembly}
+          blockedCount={getBlockedNodes(incidents).length}
+          isCalculating={isCalculating}
         />
 
-        {/* Lighting setup */}
-        <ambientLight intensity={0.35} />
-        <pointLight position={[20, 35, 15]} intensity={2.5} color="#00E5FF" castShadow />
-        <pointLight position={[-20, 25, -15]} intensity={1.5} color="#AA00FF" />
-        <pointLight position={[0, -8, 15]} intensity={0.8} color="#651FFF" />
-        
-        {/* Directional light for shadows */}
-        <directionalLight 
-          position={[10, 20, 10]} 
-          intensity={1.2} 
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-        />
-
-        {/* Optional environment map for realistic reflections */}
-        <Environment preset="city" />
-
-        {/* Building Model */}
-        <BuildingModel 
-          activeIncidents={incidents} 
-          evacuationRoute={evacuationRoute} 
-        />
-        
-        {/* Intelligent Camera */}
-        <IntelligentCamera activeTarget={activeTarget} hasAlert={hasAlert} />
-      </Canvas>
-
-      {/* HUD Overlays */}
-      <AlertIndicator hasAlert={hasAlert} incidentCount={incidents.length} />
-      
-      <RouteHUD 
-        routePath={evacuationRoute}
-        bestAssembly={bestAssembly}
-        blockedCount={getBlockedNodes(incidents).length}
-        isCalculating={isCalculating}
-      />
-
-      {/* Keyboard navigation hint */}
-      <div className="absolute top-4 right-4 z-10 text-xs font-mono text-cyan-400/60 bg-slate-950/50 px-3 py-2 rounded-lg border border-cyan-500/20">
-        <div className="flex items-center gap-2">
-          <Target size={12} />
-          <span>DRAG to rotate · SCROLL to zoom · SHIFT+DRAG to pan</span>
+        {/* Keyboard navigation hint */}
+        <div className="absolute top-4 right-4 z-10 text-xs font-mono text-cyan-400/60 bg-slate-950/50 px-3 py-2 rounded-lg border border-cyan-500/20">
+          <div className="flex items-center gap-2">
+            <Target size={12} />
+            <span>DRAG to rotate · SCROLL to zoom · SHIFT+DRAG to pan</span>
+          </div>
         </div>
       </div>
-    </div>
+    </CanvasErrorBoundary>
   );
 }

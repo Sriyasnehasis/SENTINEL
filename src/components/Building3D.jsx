@@ -14,6 +14,7 @@ import {
   Grid
 } from '@react-three/drei';
 import * as THREE from 'three';
+import { zoneCoordinates3D } from '../utils/buildingGraph';
 
 // ─────────────────────────────────────────────────────
 // Configuration & Constants
@@ -524,7 +525,7 @@ function MainTower({ activeKeys }) {
                 fontSize={0.6} 
                 color="#FFFFFF" 
                 fillOpacity={0.8}
-                font="/fonts/Orbitron-Bold.ttf"
+                
               >
                 F{f}
               </Text>
@@ -553,7 +554,7 @@ function MainTower({ activeKeys }) {
           position={[0, 0.4, 0]} 
           fontSize={2} 
           color="#FFEA00"
-          font="/fonts/Orbitron-Bold.ttf"
+          
         >
           H
         </Text>
@@ -701,7 +702,7 @@ function NorthWing({ activeKeys }) {
           fontSize={0.8} 
           color={COLORS.danger}
           fillOpacity={0.9}
-          font="/fonts/Orbitron-Bold.ttf"
+          
         >
           EMERGENCY
         </Text>
@@ -807,7 +808,7 @@ export function BuildingModel({ activeIncidents, evacuationRoute }) {
             fontSize={0.7} 
             color={COLORS.safe}
             fillOpacity={0.9}
-            font="/fonts/Orbitron-Bold.ttf"
+            
           >
             ASSEMBLY FRONT
           </Text>
@@ -839,7 +840,7 @@ export function BuildingModel({ activeIncidents, evacuationRoute }) {
             fontSize={0.7} 
             color="#69FF47"
             fillOpacity={0.9}
-            font="/fonts/Orbitron-Bold.ttf"
+            
           >
             ASSEMBLY REAR
           </Text>
@@ -863,7 +864,7 @@ export function BuildingModel({ activeIncidents, evacuationRoute }) {
             fontSize={0.7} 
             color="#FFEA00"
             fillOpacity={0.9}
-            font="/fonts/Orbitron-Bold.ttf"
+            
           >
             HELIPAD
           </Text>
