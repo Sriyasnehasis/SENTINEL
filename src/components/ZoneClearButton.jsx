@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { db } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 /**
  * ZoneClearButton — Staff component to mark evacuation zone as clear
@@ -64,15 +64,31 @@ export default function ZoneClearButton({ staffId, zone }) {
     if (!staffId || !zone) return;
     setClearing(true);
     try {
+      // 1. Update staff document
       await setDoc(doc(db, "staff", staffId), {
         zone_cleared:    true,
         zone_cleared_at: new Date().toISOString(),
         zone_assigned:   zone,
       }, { merge: true });
-      alert(`✅ Zone ${zone} marked as clear.`);
+
+      // 2. Mark active incidents as RESOLVED
+      const q = query(collection(db, "incidents"), where("status", "==", "ACTIVE"));
+      const snapshot = await getDocs(q);
+      
+      const updatePromises = snapshot.docs.map(incidentDoc => 
+        updateDoc(doc(db, "incidents", incidentDoc.id), {
+          status: "RESOLVED",
+          resolved_at: new Date().toISOString()
+        })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      console.log(`✅ Zone ${zone} marked as clear and all active incidents resolved.`);
+      alert(`✅ Zone ${zone} marked as clear and incidents resolved.`);
     } catch (error) {
       console.error("Failed to mark zone clear:", error);
-      alert("❌ Failed to mark zone clear. Check console.");
+      alert("❌ Failed to mark zone clear. Check console for details.");
     } finally {
       setClearing(false);
     }

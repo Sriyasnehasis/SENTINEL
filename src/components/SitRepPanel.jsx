@@ -91,6 +91,22 @@ export default function SitRepPanel() {
     }
   };
 
+  // Trigger FCM when severity hits P0
+  useEffect(() => {
+    if (sitrep?.severity === "P0") {
+      const url = (import.meta.env.VITE_EVENT_PROCESSOR_URL || "https://sentinel-5ytz.onrender.com") + "/dispatch-fcm";
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          severity: sitrep.severity,
+          safe_exits: sitrep.safe_exits,
+          blocked_exits: sitrep.blocked_exits
+        })
+      }).catch(console.error);
+    }
+  }, [sitrep]);
+
   useEffect(() => {
     const q = query(collection(db, "incidents"), where("status", "==", "ACTIVE"));
     return onSnapshot(q, (snap) => {

@@ -113,6 +113,51 @@ def generate_announcement():
         return jsonify({"error": str(e)}), 500
 
 
+# ─── Phase 4.2: FCM Dispatcher Endpoint (Bypass Cloud Functions) ─────────────
+import firebase_admin
+from firebase_admin import messaging as fcm_messaging
+try:
+    firebase_admin.initialize_app()
+except ValueError:
+    pass
+
+@app.route("/dispatch-fcm", methods=["POST"])
+def dispatch_fcm():
+    body = request.get_json(silent=True)
+    if not body: return jsonify({"error": "No body"}), 400
+    
+    severity = body.get("severity", "")
+    if severity != "P0":
+        return jsonify({"status": "ignored", "reason": "Not P0"}), 200
+        
+    safe_exits = body.get("safe_exits", ["Staircase B"])
+    blocked_exits = body.get("blocked_exits", [])
+    
+    try:
+        staff_docs = db.collection("staff").stream()
+        tokens = [s.to_dict().get("fcm_token") for s in staff_docs if s.to_dict().get("fcm_token")]
+        
+        if not tokens:
+            return jsonify({"status": "ignored", "reason": "No staff tokens registered"}), 200
+            
+        message = fcm_messaging.MulticastMessage(
+            notification=fcm_messaging.Notification(
+                title="🚨 SENTINEL EMERGENCY ALERT",
+                body=f"P0 incident detected. Safe exits: {', '.join(safe_exits)}. Blocked: {', '.join(blocked_exits)}. Initiate evacuation NOW."
+            ),
+            data={
+                "severity": "P0",
+                "safe_exits": json.dumps(safe_exits),
+                "blocked_exits": json.dumps(blocked_exits)
+            },
+            tokens=tokens
+        )
+        response = fcm_messaging.send_each_for_multicast(message)
+        return jsonify({"status": "sent", "success": response.success_count, "failures": response.failure_count}), 200
+    except Exception as e:
+        print(f"❌ FCM Dispatch Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # ─── Health Check ─────────────────────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
 def health():
