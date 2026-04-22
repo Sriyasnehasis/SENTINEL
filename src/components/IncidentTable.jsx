@@ -47,90 +47,78 @@ export default function IncidentTable() {
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.6rem" }}>
-        <thead>
-          <tr>
-            {["Code", "Level", "Sector", "ID", "Conf.", "Source", "Status", "Timestamp"].map((h) => (
-              <th key={h} style={{
-                padding: "0.75rem 0.5rem",
-                textAlign: "left",
-                color: "var(--text-muted)",
-                fontFamily: "JetBrains Mono",
-                fontSize: "0.55rem",
-                borderBottom: "1px solid var(--border-dim)"
-              }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {incidents.map((inc, idx) => {
-            const meta = EVENT_META[inc.event_type] || {
-              color: "var(--text-muted)", bg: "rgba(148,163,184,0.1)", label: inc.event_type
-            };
-            const statusMeta = STATUS_META[inc.status] || { color: "var(--text-muted)", label: inc.status };
-            return (
-              <tr
-                key={inc.id}
-                onClick={() => {
-                  if (inc.location?.nodeId) {
-                    window.dispatchEvent(new CustomEvent('sentinel-focus-node', { detail: inc.location.nodeId }));
-                  }
-                }}
-                style={{
-                  borderBottom: "1px solid var(--border-dim)",
-                  animation: `fadeIn 0.3s ease-out ${idx * 0.05}s both`,
-                  cursor: inc.location?.nodeId ? "pointer" : "default",
-                  fontFamily: "JetBrains Mono"
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(0, 245, 255, 0.05)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-              >
-                <td style={{ padding: "0.75rem 0.5rem", color: meta.color, fontWeight: 700 }}>
-                  {meta.label}
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem" }}>
-                  L-{inc.location?.floor ?? "X"}
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem", color: "var(--text-muted)" }}>
-                  {inc.location?.zone?.toUpperCase() ?? "UNKNOWN"}
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem", opacity: 0.7 }}>
-                  {inc.location?.room ?? "---"}
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div style={{
-                      height: "3px",
-                      width: "30px",
-                      background: "rgba(255,255,255,0.05)",
-                      position: "relative"
-                    }}>
-                       <div style={{
-                        height: "100%",
-                        width: `${(inc.confidence ?? 0) * 100}%`,
-                        background: meta.color,
-                        boxShadow: `0 0 5px ${meta.color}`
-                      }} />
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem", fontSize: "0.55rem", opacity: 0.6 }}>
-                  {inc.source_type ?? "SENS_ARRAY"}
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem" }}>
-                  <span style={{ color: statusMeta.color, fontWeight: 700 }}>
-                    {statusMeta.label}
-                  </span>
-                </td>
-                <td style={{ padding: "0.75rem 0.5rem", color: "var(--text-muted)" }}>
-                  {inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour12: false }) : "--:--:--"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      {incidents.map((inc, idx) => {
+        const meta = EVENT_META[inc.event_type] || {
+          color: "var(--text-muted)", label: inc.event_type
+        };
+        const statusMeta = STATUS_META[inc.status] || { color: "var(--text-muted)", label: inc.status };
+        const timeStr = inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' }) : "--:--";
+
+        return (
+          <div
+            key={inc.id}
+            onClick={() => {
+              if (inc.location?.nodeId) {
+                window.dispatchEvent(new CustomEvent('sentinel-focus-node', { detail: inc.location.nodeId }));
+              }
+            }}
+            style={{
+              padding: "0.8rem 1rem",
+              borderLeft: `2px solid ${inc.status === 'ACTIVE' ? 'var(--accent)' : 'var(--border-dim)'}`,
+              background: "rgba(15, 23, 42, 0.3)",
+              cursor: inc.location?.nodeId ? "pointer" : "default",
+              fontFamily: "JetBrains Mono",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              transition: "var(--transition-heavy)",
+              animation: `fadeIn 0.3s ease-out ${idx * 0.05}s both`
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(0, 245, 255, 0.08)";
+              e.currentTarget.style.borderLeftColor = "var(--primary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(15, 23, 42, 0.3)";
+              e.currentTarget.style.borderLeftColor = inc.status === 'ACTIVE' ? 'var(--accent)' : 'var(--border-dim)';
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", display: "flex", gap: "10px" }}>
+                <span style={{ fontWeight: 700 }}>{timeStr}</span>
+                <span>//</span>
+                <span style={{ color: "var(--text-main)", opacity: 0.9 }}>L-{inc.location?.floor ?? "X"}</span>
+              </div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: meta.color, letterSpacing: "0.1em" }}>
+                {meta.label}
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 500 }}>
+                {inc.location?.zone?.toUpperCase() ?? "UNKNOWN_SECTOR"}
+              </div>
+            </div>
+
+            <div style={{ textAlign: "right" }}>
+              <div style={{ 
+                fontSize: "0.65rem", 
+                fontWeight: 800, 
+                color: statusMeta.color, 
+                border: `1px solid ${statusMeta.color}44`,
+                padding: "3px 8px",
+                borderRadius: "2px",
+                background: `${statusMeta.color}11`
+              }}>
+                {statusMeta.label}
+              </div>
+              {inc.location?.room && (
+                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", marginTop: "6px", fontWeight: 600 }}>
+                  RM::{inc.location.room}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
