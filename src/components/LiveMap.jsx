@@ -59,6 +59,18 @@ export default function LiveMap() {
     }
   }, [incidents, startingNode]);
 
+  // 3. Listen for manual focus events from table
+  useEffect(() => {
+    const handleFocus = (e) => {
+      const nodeId = e.detail;
+      if (nodeId && zoneCoordinates3D[nodeId]) {
+        setStartingNode(nodeId);
+      }
+    };
+    window.addEventListener('sentinel-focus-node', handleFocus);
+    return () => window.removeEventListener('sentinel-focus-node', handleFocus);
+  }, []);
+
   return (
     <div style={{ height: "650px", position: "relative", borderRadius: "16px", overflow: "hidden", background: "#030508", border: "1px solid rgba(255,255,255,0.05)" }}>
       <Canvas camera={{ position: [0, 60, 100], fov: 40 }}>

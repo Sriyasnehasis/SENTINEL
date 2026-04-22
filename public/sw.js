@@ -1,37 +1,28 @@
-// SENTINEL Offline Service Worker
-// Provides offline caching for PWA resilience during network drops
-
-const CACHE_NAME = "sentinel-v1";
+const CACHE_NAME = "sentinel-v2";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
-  "/icons.svg",
-  "/favicon.svg"
+  "/logo.png"
 ];
 
 // Install event - cache assets
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing service worker...");
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log("[SW] Caching assets");
       return cache.addAll(ASSETS_TO_CACHE);
-    }).catch((err) => {
-      console.error("[SW] Cache failed:", err);
     })
   );
-  self.skipWaiting();
 });
 
-// Activate event - clean old caches
+// Activate event - aggressively clean old caches
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Activating service worker...");
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((name) => {
           if (name !== CACHE_NAME) {
-            console.log("[SW] Deleting old cache:", name);
+            console.log("[SW] Purging old cache:", name);
             return caches.delete(name);
           }
         })
@@ -41,38 +32,32 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - Network First Strategy
 self.addEventListener("fetch", (event) => {
-  // Skip non-GET requests
   if (event.request.method !== "GET") return;
-  
-  // Skip chrome-extension and other non-http(s) requests
   if (!event.request.url.startsWith("http")) return;
-  
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        // Serve from cache
-        return cached;
-      }
-      // Fetch from network
-      return fetch(event.request).then((response) => {
-        // Don't cache non-successful responses
-        if (!response || response.status !== 200 || response.type !== "basic") {
-          return response;
+    fetch(event.request)
+      .then((response) => {
+        // Successful network response: update cache
+        if (response && response.status === 200 && response.type === "basic") {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        // Clone the response for caching
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return response;
-      }).catch(() => {
-        // Offline fallback for navigation requests
-        if (event.request.mode === "navigate") {
-          return caches.match("/index.html");
-        }
-      });
-    })
+      })
+      .catch(() => {
+        // Network failed: try cache
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          // If both fail and it's a page navigation, return index.html
+          if (event.request.mode === "navigate") {
+            return caches.match("/index.html");
+          }
+        });
+      })
   );
 });

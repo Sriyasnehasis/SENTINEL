@@ -140,6 +140,69 @@ gcloud functions deploy sentinel-fcm-dispatcher \
 
 ---
 
+## Phase 3: Cloud Functions Deployment & Local Testing
+
+### Step 3.1: Configure Environment
+
+1. **Get Gemini API Key**: Go to [AI Studio](https://aistudio.google.com/app/apikey).
+2. **Set .env**: Ensure `GEMINI_API_KEY` is in your `.env` file.
+
+### Step 3.2: Deploy Gemini Trigger Function
+
+```bash
+cd backend/cloud-functions/gemini-trigger
+
+gcloud functions deploy sentinel-gemini-trigger \
+  --gen2 \
+  --runtime python311 \
+  --region asia-south1 \
+  --source . \
+  --entry-point on_incident_created \
+  --trigger-event-filters="type=google.cloud.firestore.document.v1.created" \
+  --trigger-event-filters="database=(default)" \
+  --trigger-event-filters-path-pattern="document=incidents/{incidentId}" \
+  --set-env-vars GEMINI_API_KEY=[YOUR_GEMINI_API_KEY] \
+  --project sentinel-5f9c1
+```
+
+### Step 3.3: Deploy FCM Dispatcher Function
+
+```bash
+cd backend/cloud-functions/fcm-dispatcher
+
+gcloud functions deploy sentinel-fcm-dispatcher \
+  --gen2 \
+  --runtime python311 \
+  --region asia-south1 \
+  --source . \
+  --entry-point on_p0_incident \
+  --trigger-event-filters="type=google.cloud.firestore.document.v1.written" \
+  --trigger-event-filters="database=(default)" \
+  --trigger-event-filters-path-pattern="document=sessions/current" \
+  --project sentinel-5f9c1
+```
+
+### Step 3.4: Local Verification (No Deployment Required)
+
+You can test the logic of these functions locally before deploying:
+
+1. **Install Dependencies**:
+   ```bash
+   pip install functions-framework google-cloud-firestore google-generativeai firebase-admin
+   ```
+
+2. **Run Test Suite**:
+   ```bash
+   python backend/cloud-functions/test_functions.py
+   ```
+
+3. **Expected Results**:
+   - `gemini-trigger`: Will analyze a mock incident and write a JSON SitRep to Firestore.
+   - `fcm-dispatcher`: Will detect the P0 severity in the SitRep and attempt to send notifications.
+   - **Frontend**: The `SitRepPanel` in your browser will automatically update with the Gemini-generated report.
+
+---
+
 ## Phase 4: Firestore Security Rules
 
 Paste these rules into Firebase Console → Firestore Database → Rules:
