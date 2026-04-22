@@ -30,30 +30,35 @@ const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
 
 /**
  * A single floor slab with edge outline.
- * When isActive=true the slab lights up in danger-red.
+ * Optimized for a 'Digital Glass' aesthetic.
  */
-function FloorSlab({ position, size, color = '#00E5FF', opacity = 0.12, wireframe = true, isActive }) {
+function FloorSlab({ position, size, color = '#00E5FF', isActive }) {
   const [w, h, d] = size;
-  const finalColor   = isActive ? '#FF3D00' : color;
-  const finalOpacity = isActive ? 0.75      : opacity;
+  const dangerColor = '#ff0055'; // Matches var(--accent) in new UI
 
   return (
     <group position={position}>
-      <mesh>
-        <boxGeometry args={size} />
-        <meshStandardMaterial
-          color={finalColor}
-          transparent
-          opacity={finalOpacity}
-          wireframe={wireframe && !isActive}
-        />
-      </mesh>
+      {/* Danger Overlay: Only visible when incident is active on this floor */}
+      {isActive && (
+        <mesh>
+          <boxGeometry args={size} />
+          <meshStandardMaterial
+            color={dangerColor}
+            transparent
+            opacity={0.45}
+            emissive={dangerColor}
+            emissiveIntensity={1.2}
+          />
+        </mesh>
+      )}
+      
+      {/* Structural Outlines: Brighter for better visibility from distance */}
       <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(w + 0.05, h + 0.05, d + 0.05)]} />
+        <edgesGeometry args={[new THREE.BoxGeometry(w, h, d)]} />
         <lineBasicMaterial
-          color={isActive ? '#FF6D00' : color}
+          color={isActive ? dangerColor : color}
           transparent
-          opacity={isActive ? 0.9 : 0.35}
+          opacity={isActive ? 1.0 : 0.55}
         />
       </lineSegments>
     </group>
@@ -61,21 +66,37 @@ function FloorSlab({ position, size, color = '#00E5FF', opacity = 0.12, wirefram
 }
 
 /** Structural glowing pillar / column */
-function Pillar({ position, height = FH, radius = 0.18, color = '#0044ff' }) {
+function Pillar({ position, height = FH, radius = 0.15, color = '#00E5FF' }) {
   return (
-    <Cylinder args={[radius, radius, height, 6]} position={position}>
-      <meshStandardMaterial color={color} transparent opacity={0.4} />
-    </Cylinder>
+    <group position={position}>
+      <Cylinder args={[radius, radius, height, 8]}>
+        <meshStandardMaterial color="#283593" metalness={1} roughness={0.1} />
+      </Cylinder>
+      {/* Brighter edge highlight on pillar */}
+      <Cylinder args={[radius + 0.03, radius + 0.03, height, 8]}>
+        <meshStandardMaterial color={color} transparent opacity={0.65} wireframe />
+      </Cylinder>
+    </group>
   );
 }
 
-/** Pulsing hazard beacon — scales & changes opacity over time */
+/** Quantum Hazard Beacon — replaces the old 'Saturn' look with a high-tech emergency signal */
 function HazardBeacon({ position, type }) {
   const meshRef = useRef();
+  const ringRef = useRef();
+  const beamRef = useRef();
 
   useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
     if (meshRef.current) {
-      meshRef.current.scale.setScalar(1 + 0.2 * Math.sin(clock.getElapsedTime() * 4));
+      meshRef.current.rotation.y = t * 2.5;
+      meshRef.current.position.y = Math.sin(t * 3.5) * 0.25;
+    }
+    if (ringRef.current) {
+      ringRef.current.rotation.z = -t * 2;
+    }
+    if (beamRef.current) {
+      beamRef.current.material.opacity = 0.2 + Math.sin(t * 6) * 0.15;
     }
   });
 
@@ -83,13 +104,32 @@ function HazardBeacon({ position, type }) {
 
   return (
     <group position={position}>
-      <Sphere ref={meshRef} args={[0.7, 16, 16]}>
-        <meshBasicMaterial color={color} />
-      </Sphere>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[1.5, 0.1, 8, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0.4} />
+      {/* 1. Floating Octahedron (Core) */}
+      <mesh ref={meshRef}>
+        <octahedronGeometry args={[0.8, 0]} />
+        <meshStandardMaterial 
+          color={color} 
+          emissive={color} 
+          emissiveIntensity={2.5}
+          metalness={0.9}
+          roughness={0.1}
+        />
       </mesh>
+
+      {/* 2. Rotating High-Tech Base Ring */}
+      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]} position={[0, -0.6, 0]}>
+        <torusGeometry args={[1.4, 0.04, 6, 6]} />
+        <meshBasicMaterial color={color} wireframe />
+      </mesh>
+
+      {/* 3. Pulsing Vertical Signal Beam (Reduced height to avoid clutter) */}
+      <mesh ref={beamRef} position={[0, 1.75, 0]}>
+        <cylinderGeometry args={[0.05, 0.5, 3.5, 12, 1, true]} />
+        <meshBasicMaterial color={color} transparent opacity={0.25} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* 4. Local illumination */}
+      <pointLight intensity={8} color={color} distance={12} decay={2} />
     </group>
   );
 }
@@ -230,6 +270,68 @@ function Skybridge({ start, end, color = '#00B0FF' }) {
   );
 }
 
+/** Pulsing highlight ring + overhead spotlight for focused incidents */
+function FocusHighlight({ position }) {
+  const ringRef = useRef();
+  const alertColor = '#ff9f00'; // Matches var(--neon-orange)
+
+  useFrame(({ clock }) => {
+    if (ringRef.current) {
+      const s = 1 + Math.sin(clock.getElapsedTime() * 10) * 0.15;
+      ringRef.current.scale.set(s, s, s);
+      ringRef.current.material.opacity = 0.6 + Math.sin(clock.getElapsedTime() * 10) * 0.3;
+    }
+  });
+
+  return (
+    <group position={position}>
+      {/* Animated Pulse Ring */}
+      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[3, 0.08, 16, 100]} />
+        <meshStandardMaterial 
+          color={alertColor} 
+          transparent 
+          opacity={0.6} 
+          emissive={alertColor} 
+          emissiveIntensity={4} 
+        />
+      </mesh>
+      
+      {/* Intense Point Light directly above */}
+      <pointLight position={[0, 8, 0]} intensity={15} color="#FFEB3B" distance={40} decay={2} />
+      
+      {/* Ground Glow */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -1.3, 0]}>
+        <circleGeometry args={[4.0, 32]} />
+        <meshBasicMaterial color="#FFEB3B" transparent opacity={0.25} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Flowing directional arrow for evacuation paths */
+function PathArrow({ start, end, color = "#FFEB3B" }) {
+  const meshRef = useRef();
+  
+  const direction = useMemo(() => new THREE.Vector3().subVectors(end, start).normalize(), [start, end]);
+  const quaternion = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction), [start, end]);
+
+  useFrame(({ clock }) => {
+    if (meshRef.current) {
+      // Medium speed constant flow (loops 0 to 1)
+      const t = (clock.getElapsedTime() * 1.2) % 1; 
+      meshRef.current.position.lerpVectors(start, end, t);
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} quaternion={quaternion}>
+      <coneGeometry args={[0.5, 1.2, 4]} />
+      <meshBasicMaterial color={color} />
+    </mesh>
+  );
+}
+
 // ─── Wing Components ─────────────────────────────────────────────────────────
 
 /**
@@ -260,39 +362,35 @@ function MainTower({ activeKeys }) {
           <group key={f}>
             <FloorSlab
               position={[18, y, 0]}
-              size={[14, 0.4, 24]}
+              size={[14, 0.3, 24]}
               color="#00E5FF"
-              opacity={0.12}
               isActive={activeKeys.has(`MT-${f}-EastHall`)}
             />
             <FloorSlab
               position={[0, y, 0]}
-              size={[10, 0.4, 24]}
+              size={[10, 0.3, 24]}
               color="#651FFF"
-              opacity={0.18}
               isActive={activeKeys.has(`MT-${f}-Center`)}
             />
             <FloorSlab
               position={[-18, y, 0]}
-              size={[14, 0.4, 24]}
+              size={[14, 0.3, 24]}
               color="#00E5FF"
-              opacity={0.12}
               isActive={activeKeys.has(`MT-${f}-WestHall`)}
             />
-            {/* Back corridor strip */}
+            {/* Back corridor strip — aligned to edge for ER bridge */}
             <FloorSlab
-              position={[0, y, -10]}
-              size={[44, 0.4, 6]}
+              position={[0, y, -11.5]}
+              size={[44, 0.3, 7]}
               color="#1a1a3e"
-              opacity={0.15}
               isActive={false}
             />
             <Text
               position={[0, y + 0.5, -13]}
               rotation={[-Math.PI / 2, 0, 0]}
-              fontSize={1.2}
+              fontSize={1.8}
               color="#ffffff"
-              fillOpacity={0.25}
+              fillOpacity={0.4}
             >
               {f === 0 ? 'GROUND' : `FLOOR ${f}`}
             </Text>
@@ -303,10 +401,9 @@ function MainTower({ activeKeys }) {
       {/* Roof slab */}
       <FloorSlab
         position={[0, FH * NUM_FLOORS_MT, 0]}
-        size={[50, 0.6, 30]}
+        size={[50, 0.4, 30]}
         color="#00E5FF"
-        opacity={0.22}
-        wireframe={false}
+        isActive={false}
       />
     </group>
   );
@@ -338,14 +435,21 @@ function ERWing({ activeKeys }) {
           <Text
             position={[0, FH * f + 0.5, -9]}
             rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={1.0}
+            fontSize={1.4}
             color="#FF6600"
-            fillOpacity={0.35}
+            fillOpacity={0.5}
           >
             {f === 0 ? 'ER GROUND' : 'ER FLOOR 1'}
           </Text>
         </group>
       ))}
+      {/* Roof slab */}
+      <FloorSlab
+        position={[0, FH * NUM_FLOORS_ER, 0]}
+        size={[28, 0.4, 20]}
+        color="#FF6600"
+        isActive={false}
+      />
     </group>
   );
 }
@@ -355,10 +459,10 @@ function ICUWing({ activeKeys }) {
   return (
     <group position={[50, 0, 0]}>
       {[[-8, -6], [8, -6], [-8, 6], [8, 6]].map(([px, pz], i) =>
-        Array.from({ length: NUM_FLOORS_ICU }).map((_, f) => (
+        Array.from({ length: NUM_FLOORS_ICU + 1 }).map((_, f) => (
           <Pillar
             key={`${i}-${f}`}
-            position={[px, FH * (f + 1) + FH / 2, pz]}
+            position={[px, FH * f + FH / 2, pz]}
             height={FH}
             color="#00FF94"
           />
@@ -368,22 +472,28 @@ function ICUWing({ activeKeys }) {
         <group key={f}>
           <FloorSlab
             position={[0, FH * f, 0]}
-            size={[20, 0.4, 16]}
+            size={[20, 0.3, 16]}
             color="#00FF94"
-            opacity={0.18}
             isActive={activeKeys.has(`ICU-${f}-Central`)}
           />
           <Text
             position={[0, FH * f + 0.5, -7]}
             rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={0.9}
+            fontSize={1.3}
             color="#00FF94"
-            fillOpacity={0.3}
+            fillOpacity={0.5}
           >
             {`ICU F${f}`}
           </Text>
         </group>
       ))}
+      {/* Roof slab */}
+      <FloorSlab
+        position={[0, FH * (NUM_FLOORS_ICU + 1), 0]}
+        size={[20, 0.3, 16]}
+        color="#00FF94"
+        isActive={false}
+      />
     </group>
   );
 }
@@ -406,22 +516,28 @@ function OPDWing({ activeKeys }) {
         <group key={f}>
           <FloorSlab
             position={[0, FH * f, 0]}
-            size={[18, 0.4, 14]}
+            size={[18, 0.3, 14]}
             color="#AA00FF"
-            opacity={0.18}
             isActive={activeKeys.has(`OPD-${f}-Reception`)}
           />
           <Text
             position={[0, FH * f + 0.5, -6]}
             rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={0.9}
+            fontSize={1.3}
             color="#AA00FF"
-            fillOpacity={0.3}
+            fillOpacity={0.5}
           >
             {`OPD F${f}`}
           </Text>
         </group>
       ))}
+      {/* Roof slab */}
+      <FloorSlab
+        position={[0, FH * NUM_FLOORS_OPD, 0]}
+        size={[18, 0.3, 14]}
+        color="#AA00FF"
+        isActive={false}
+      />
     </group>
   );
 }
@@ -434,8 +550,10 @@ function OPDWing({ activeKeys }) {
  * Props:
  *   activeIncidents  – array of Firestore incident objects (status=ACTIVE)
  *   evacuationRoute  – ordered array of graph node IDs representing the Dijkstra path
+ *   recentIncident   – the newest incident to focus on
+ *   highlightActive  – boolean to trigger the temporary focus effect
  */
-export function BuildingModel({ activeIncidents = [], evacuationRoute = [] }) {
+export function BuildingModel({ activeIncidents = [], evacuationRoute = [], recentIncident = null, highlightActive = false }) {
   // Build a Set of "active keys" derived from incident location data.
   // Keys match the pattern used in FloorSlab isActive checks: "<wing>-<floor>-<zone>".
   const activeKeys = useMemo(() => {
@@ -466,16 +584,25 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [] }) {
       .map(inc => {
         const raw = inc.location.zone?.replace(/\s+/g, '');
         const key = `${inc.location.floor}-${raw}`;
-        const c   = zoneCoordinates3D[key] || zoneCoordinates3D[raw];
+        const c   = zoneCoordinates3D[key] || zoneCoordinates3D[raw] || zoneCoordinates3D[inc.location.nodeId];
         return c ? { position: [c[0], c[1] + 1.5, c[2]], type: inc.event_type } : null;
       })
       .filter(Boolean);
   }, [activeIncidents]);
 
+  // Derive focus highlight position
+  const focusPosition = useMemo(() => {
+    if (!recentIncident || !highlightActive) return null;
+    const raw = recentIncident.location.zone?.replace(/\s+/g, '');
+    const key = `${recentIncident.location.floor}-${raw}`;
+    const c   = zoneCoordinates3D[key] || zoneCoordinates3D[raw] || zoneCoordinates3D[recentIncident.location.nodeId];
+    return c ? [c[0], c[1] + 1.2, c[2]] : null;
+  }, [recentIncident, highlightActive]);
+
   return (
     <group>
-      {/* Ground grid */}
-      <gridHelper args={[200, 100, '#00E5FF', '#0a0a1a']} position={[0, -0.1, 0]} />
+      {/* Ground grid - more subtle */}
+      <gridHelper args={[300, 60, '#1A237E', '#050510']} position={[0, -0.1, 0]} />
 
       {/* ── Assembly areas ─────────────────────────────────────────────── */}
       {/* Primary (front) */}
@@ -539,18 +666,19 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [] }) {
       <ElevatorShaft x={-10} z={-12} floors={NUM_FLOORS_MT} color="#00B0FF" />
 
       {/* ── External fire escapes ──────────────────────────────────────── */}
-      <FireEscapeColumn x={30}  z={0} floors={NUM_FLOORS_MT} />
-      <FireEscapeColumn x={-30} z={0} floors={NUM_FLOORS_MT} />
+      {/* Positioned at corners to avoid bridge intersections */}
+      <FireEscapeColumn x={26}  z={8}  floors={NUM_FLOORS_MT} />
+      <FireEscapeColumn x={-26} z={8}  floors={NUM_FLOORS_MT} />
 
       {/* ── Skybridges ─────────────────────────────────────────────────── */}
-      {/* MT ↔ ICU (3 levels) */}
-      <Skybridge start={[25, FH * 1, 0]} end={[45, FH * 1, 0]} color="#00FF94" />
-      <Skybridge start={[25, FH * 2, 0]} end={[45, FH * 2, 0]} color="#00FF94" />
-      <Skybridge start={[25, FH * 3, 0]} end={[45, FH * 3, 0]} color="#00FF94" />
-      {/* MT ↔ OPD */}
-      <Skybridge start={[-25, FH * 1, 0]} end={[-40, FH * 1, 0]} color="#AA00FF" />
-      {/* MT ↔ ER */}
-      <Skybridge start={[0, FH * 1, -15]} end={[0, FH * 1, -32]} color="#FF6600" />
+      {/* MT ↔ ICU (aligned to edges) */}
+      <Skybridge start={[25, FH * 1, 0]} end={[40, FH * 1, 0]} color="#00FF94" />
+      <Skybridge start={[25, FH * 2, 0]} end={[40, FH * 2, 0]} color="#00FF94" />
+      <Skybridge start={[25, FH * 3, 0]} end={[40, FH * 3, 0]} color="#00FF94" />
+      {/* MT ↔ OPD (aligned to edges) */}
+      <Skybridge start={[-25, FH * 1, 0]} end={[-36, FH * 1, 0]} color="#AA00FF" />
+      {/* MT ↔ ER (aligned to edges) */}
+      <Skybridge start={[0, FH * 1, -15]} end={[0, FH * 1, -30]} color="#FF6600" />
 
       {/* ── Router dots (derived from graph) ───────────────────────────── */}
       {Object.entries(zoneCoordinates3D)
@@ -562,11 +690,17 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [] }) {
       {/* ── Evacuation route path ───────────────────────────────────────── */}
       {pathPoints.length > 1 && (
         <>
-          <Line points={pathPoints} color="#00E676" lineWidth={6} />
+          <Line points={pathPoints} color="#00ff9f" lineWidth={6} />
           {pathPoints.map((pt, i) => (
-            <Sphere key={i} args={[0.35, 8, 8]} position={pt}>
-              <meshBasicMaterial color="#00E676" />
-            </Sphere>
+            <group key={i}>
+              <Sphere args={[0.35, 8, 8]} position={pt}>
+                <meshBasicMaterial color="#00ff9f" />
+              </Sphere>
+              {/* Add arrow for each segment */}
+              {i < pathPoints.length - 1 && (
+                <PathArrow start={pt} end={pathPoints[i + 1]} />
+              )}
+            </group>
           ))}
         </>
       )}
@@ -575,6 +709,11 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [] }) {
       {hazardPositions.map((h, i) => (
         <HazardBeacon key={i} position={h.position} type={h.type} />
       ))}
+
+      {/* ── Focus Highlight ────────────────────────────────────────────── */}
+      {focusPosition && (
+        <FocusHighlight position={focusPosition} />
+      )}
     </group>
   );
 }

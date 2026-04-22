@@ -89,8 +89,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Center/Right: The Orbital Map View */}
-        <div style={{ gridColumn: 'span 5', position: 'relative' }}>
+        {/* Center/Right: The Orbital Map View — Expanded for better visibility */}
+        <div style={{ gridColumn: 'span 6', position: 'relative' }}>
           <div className="glass-card" style={{ height: 'calc(100vh - 3rem)', padding: '0.5rem' }}>
             <div style={{ 
               position: 'absolute', 
@@ -107,8 +107,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Far Right: Vertical Stream Sidebar */}
-        <div style={{ gridColumn: 'span 4', height: 'calc(100vh - 3rem)' }}>
+        {/* Far Right: Vertical Stream Sidebar — Narrowed */}
+        <div style={{ gridColumn: 'span 3', height: 'calc(100vh - 3rem)' }}>
           <div className="glass-card" style={{ height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
             <div className="hud-label" style={{ marginBottom: '1rem', fontSize: '0.5rem' }}>INCIDENT_STREAM_V3.0</div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
