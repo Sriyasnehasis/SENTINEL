@@ -68,9 +68,9 @@ export default function DialogflowWidget() {
   return (
     <div style={{ position: "fixed", bottom: "20px", left: "20px", zIndex: 1000 }}>
        <df-messenger
-        location="asia-south1"
-        project-id="sentinel-crisis-2026"
-        agent-id="98a123-b456-c789"
+        location="global"
+        project-id={import.meta.env.VITE_DIALOGFLOW_PROJECT_ID || "sentinel-494020"}
+        agent-id={import.meta.env.VITE_DIALOGFLOW_AGENT_ID || "282d5d70-fce9-4da7-bd24-8d7fbb420f21"}
         language-code="en"
         chat-title="SENTINEL EMERGENCY VOICE"
         wait-open="true"

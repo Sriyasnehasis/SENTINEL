@@ -12,6 +12,22 @@ export default function SitRepPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Trigger FCM when severity hits P0
+  useEffect(() => {
+    if (sitrep?.severity === "P0") {
+      const url = (import.meta.env.VITE_EVENT_PROCESSOR_URL || "https://sentinel-5ytz.onrender.com") + "/dispatch-fcm";
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          severity: sitrep.severity,
+          safe_exits: sitrep.safe_exits,
+          blocked_exits: sitrep.blocked_exits
+        })
+      }).catch(console.error);
+    }
+  }, [sitrep]);
+
   useEffect(() => {
     // Listen to the session document written by the Gemini Cloud Function
     const unsub = onSnapshot(doc(db, "sessions", "current"), (snap) => {
