@@ -14,8 +14,8 @@
 
 import { useState } from "react";
 import { db } from "../firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { Play, Loader2 } from "lucide-react";
+import { collection, addDoc, serverTimestamp, doc, setDoc } from "firebase/firestore";
+import { Play, Loader2, Sparkles } from "lucide-react";
 
 // ─── Demo Script Configuration ────────────────────────────────────────────────
 // Each event is delayed by specified milliseconds from the start
@@ -59,6 +59,26 @@ async function createIncident(eventData) {
   try {
     const docRef = await addDoc(collection(db, "incidents"), incident);
     console.log(`✅ Incident created: ${incident.event_type} at ${incident.location.room}`);
+    
+    // 🧠 Phase 2/3 FIX: Mock the AI analysis so SitRepPanel works locally
+    const mockAnalysis = {
+      severity: incident.event_type === "FIRE" ? "P0" : "P1",
+      threat_summary: `${incident.event_type} DETECTED IN ${incident.location.zone.toUpperCase()} ROOM ${incident.location.room}. EXTREME CAUTION ADVISED.`,
+      safe_exits: ["STAIRCASE-B", "WEST-EVAC-EXIT"],
+      blocked_exits: incident.event_type === "FIRE" ? ["EAST-WING-MAIN"] : [],
+      recommended_actions: [
+        "DEPLOY EMERGENCY RESPONSE TEAM",
+        "CLEAR NON-ESSENTIAL STAFF FROM SECTOR",
+        "INITIATE AUDIO ANNOUNCEMENT"
+      ]
+    };
+
+    await setDoc(doc(db, "sessions", "current"), {
+      current_sitrep: mockAnalysis,
+      last_updated: serverTimestamp(),
+      incident_count: 1
+    }, { merge: true });
+
     return docRef.id;
   } catch (error) {
     console.error("❌ Failed to create incident:", error);

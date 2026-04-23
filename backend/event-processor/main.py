@@ -19,10 +19,35 @@ import base64
 from datetime import datetime, timezone
 
 from flask import Flask, request, jsonify
-from google.cloud import firestore
+# Removed redundant google.cloud import to use firebase-admin instead
 
 app = Flask(__name__)
-db  = firestore.Client()
+
+# 🔑 Authentication Bridge (Phase 4.4)
+import firebase_admin
+from firebase_admin import credentials, firestore as admin_firestore
+
+service_account_json = os.environ.get("GCP_SERVICE_ACCOUNT_JSON")
+if service_account_json:
+    try:
+        import json
+        cred_dict = json.loads(service_account_json)
+        cred = credentials.Certificate(cred_dict)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        print("✅ Authenticated via Service Account JSON")
+    except Exception as e:
+        print(f"❌ Failed to parse Service Account JSON: {e}")
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+else:
+    try:
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+    except Exception:
+        pass
+
+db = admin_firestore.client()
 
 REQUIRED_FIELDS = ["event_id", "incident_id", "event_type", "location", "confidence"]
 VALID_EVENT_TYPES = {"FIRE", "SMOKE", "TRAPPED", "INJURY", "MEDICAL", "PANIC"}
