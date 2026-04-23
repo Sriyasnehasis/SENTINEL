@@ -100,7 +100,7 @@ function HazardBeacon({ position, type }) {
     }
   });
 
-  const color = type === 'FIRE' ? '#FF3D00' : '#FFB300';
+  const color = type === 'FIRE' ? '#FF3D00' : type === 'MASS_CASUALTY' ? '#ff0000' : '#FFB300';
 
   return (
     <group position={position}>
@@ -559,10 +559,17 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
   const activeKeys = useMemo(() => {
     const set = new Set();
     activeIncidents.forEach(inc => {
-      const raw = inc.location.zone?.replace(/\s+/g, '');
-      const key = `${inc.location.floor}-${raw}`;
-      set.add(key);
-      set.add(raw || '');
+      // Primary location
+      const raw = inc.location?.zone?.replace(/\s+/g, '');
+      const key = `${inc.location?.floor}-${raw}`;
+      if (key) set.add(key);
+      if (raw) set.add(raw);
+      if (inc.location?.nodeId) set.add(inc.location.nodeId);
+
+      // Escalated locations
+      if (Array.isArray(inc.affected_nodes)) {
+        inc.affected_nodes.forEach(nodeId => set.add(nodeId));
+      }
     });
     return set;
   }, [activeIncidents]);
@@ -580,14 +587,17 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
 
   // Derive world-space positions for hazard beacons.
   const hazardPositions = useMemo(() => {
-    return activeIncidents
-      .map(inc => {
-        const raw = inc.location.zone?.replace(/\s+/g, '');
-        const key = `${inc.location.floor}-${raw}`;
-        const c   = zoneCoordinates3D[key] || zoneCoordinates3D[raw] || zoneCoordinates3D[inc.location.nodeId];
-        return c ? { position: [c[0], c[1] + 1.5, c[2]], type: inc.event_type } : null;
-      })
-      .filter(Boolean);
+    const beacons = [];
+    activeIncidents.forEach(inc => {
+      const affected = [inc.location?.nodeId, ...(inc.affected_nodes || [])].filter(Boolean);
+      affected.forEach(nodeId => {
+        const c = zoneCoordinates3D[nodeId];
+        if (c) {
+          beacons.push({ position: [c[0], c[1] + 1.5, c[2]], type: inc.event_type });
+        }
+      });
+    });
+    return beacons;
   }, [activeIncidents]);
 
   // Derive focus highlight position

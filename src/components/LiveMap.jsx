@@ -77,11 +77,11 @@ export default function LiveMap() {
   // 2. Calculate rescue path
   useEffect(() => {
     if (buildingGraph && startingNode && zoneCoordinates3D[startingNode]) {
-      const blocked = getBlockedNodes(incidents);
+      const { blocked, hazardMap } = getBlockedNodes(incidents);
       let calculatedPath = [];
       
       ASSEMBLY_GOALS.forEach(goal => {
-        const path = dijkstra(buildingGraph, startingNode, goal, blocked);
+        const path = dijkstra(buildingGraph, startingNode, goal, blocked, hazardMap);
         if (path.length > 0 && (calculatedPath.length === 0 || path.length < calculatedPath.length)) {
           calculatedPath = path;
         }
