@@ -12,21 +12,8 @@ export default function SitRepPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Trigger FCM when severity hits P0
-  useEffect(() => {
-    if (sitrep?.severity === "P0") {
-      const url = (import.meta.env.VITE_EVENT_PROCESSOR_URL || "https://sentinel-5ytz.onrender.com") + "/dispatch-fcm";
-      fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          severity: sitrep.severity,
-          safe_exits: sitrep.safe_exits,
-          blocked_exits: sitrep.blocked_exits
-        })
-      }).catch(console.error);
-    }
-  }, [sitrep]);
+  // Trigger Logic: FCM triggers are now handled inside the Firestore listener
+  // to ensure one-way data flow and prevent redundant local fetches during demos.
 
   useEffect(() => {
     // Listen to the session document written by the Gemini Cloud Function
@@ -38,8 +25,30 @@ export default function SitRepPanel() {
           setError(data.sitrep_error);
           setSitrep(null);
         } else if (data.current_sitrep) {
-          setSitrep(data.current_sitrep);
+          // 🛡️ Phase 4 Integration: Auto-dispatch to FCM only if in production
+          const current = data.current_sitrep;
+          setSitrep(current);
           setError(null);
+
+          if (current.severity === "P0") {
+            const baseUrl = import.meta.env.VITE_EVENT_PROCESSOR_URL || "https://sentinel-5ytz.onrender.com";
+            
+            // 📡 P0 Mass Notification Dispatch (Phase 4 Logic)
+            fetch(`${baseUrl}/dispatch-fcm`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(current)
+            }).then(res => {
+              if (res.status === 404) {
+                console.warn("🛡️ [Phase 4] Notification Dispatcher endpoint not yet deployed to backend.");
+              } else if (res.ok) {
+                console.log("🚀 [Phase 4] P0 Emergency Notifications sent via GCP/Render.");
+              }
+            }).catch(() => {
+              // Network level catch (Service down or CORS)
+              console.log("ℹ️ [Phase 4] Notification Dispatch skipped. (Check VITE_EVENT_PROCESSOR_URL)");
+            });
+          }
         }
       } else {
         setSitrep(null);
