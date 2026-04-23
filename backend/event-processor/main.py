@@ -19,9 +19,11 @@ import base64
 from datetime import datetime, timezone
 
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 # Removed redundant google.cloud import to use firebase-admin instead
 
 app = Flask(__name__)
+CORS(app) # 🛡️ Enable Cross-Origin Resource Sharing
 
 # 🔑 Authentication Bridge (Phase 4.4)
 import firebase_admin
