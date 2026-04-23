@@ -18,18 +18,25 @@ export default function Home() {
   const [stats, setStats] = useState({ active: 0, total: 0, resolved: 0 });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [systemStatus, setSystemStatus] = useState("NOMINAL");
+  const [focusedIncident, setFocusedIncident] = useState(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "incidents"), (snap) => {
-      const all = snap.docs.map((d) => d.data());
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const active = all.filter((i) => i.status === "ACTIVE").length;
       const resolved = all.filter((i) => i.status === "RESOLVED").length;
       setStats({ active, total: all.length, resolved });
       setLastUpdated(new Date());
       setSystemStatus(active > 0 ? (active >= 3 ? "CRITICAL" : "WARNING") : "NOMINAL");
+      
+      // If the currently focused incident is resolved or removed, clear focus
+      if (focusedIncident) {
+        const stillActive = all.find(i => i.id === focusedIncident.id && i.status === "ACTIVE");
+        if (!stillActive) setFocusedIncident(null);
+      }
     });
     return () => unsub();
-  }, []);
+  }, [focusedIncident]);
 
   const statusConfig = {
     NOMINAL:   { color: "var(--neon-green)", label: "SYSTEM_NOMINAL" },
@@ -76,7 +83,7 @@ export default function Home() {
           {/* Floating SitRep */}
           <div className="glass-card" style={{ padding: '1.5rem', flex: '1' }}>
             <div className="hud-label" style={{ marginBottom: '1rem' }}>TACTICAL_ANALYSIS</div>
-            <SitRepPanel />
+            <SitRepPanel focusedIncident={focusedIncident} />
           </div>
 
           {/* Emergency Command HUD */}
@@ -112,7 +119,10 @@ export default function Home() {
           <div className="glass-card" style={{ height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
             <div className="hud-label" style={{ marginBottom: '1rem', fontSize: '0.5rem' }}>INCIDENT_STREAM_V3.0</div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              <IncidentTable />
+              <IncidentTable 
+                focusedIncidentId={focusedIncident?.id} 
+                onFocus={(inc) => setFocusedIncident(inc)} 
+              />
             </div>
           </div>
         </div>
