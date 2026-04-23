@@ -55,9 +55,12 @@ class MinHeap {
 // ─── Hazard weight multipliers ────────────────────────────────────────────────
 
 const HAZARD_WEIGHT = {
-  FIRE:    Infinity, // Completely block fire zones
-  SMOKE:   8,        // Heavy penalty for smoke zones
-  TRAPPED: 3,        // Moderate penalty
+  FIRE:    Infinity, // Hard block — no entry
+  SMOKE:   8,        // Heavy penalty
+  TRAPPED: 3,        // Moderate — responders may need access
+  MEDICAL: 2,        // Caution zone — responders must reach patients
+  INJURY:  2,        // Same as medical
+  PANIC:   1.5,      // Soft penalty — crowd interference
   default: 1,
 };
 
@@ -163,61 +166,22 @@ export function getBlockedNodes(incidents) {
 
     const floor    = inc.location?.floor;
     const zone     = inc.location?.zone;
-    const nodeId   = inc.location?.nodeId; // direct ID if Firestore stores it
+    const nodeId   = inc.location?.nodeId;
     const evtType  = inc.event_type;
+    const affected = inc.affected_nodes || [];
 
-    // Prefer explicit nodeId stored by the sensor, fall back to derived key
-    const key = nodeId || (floor != null && zone
-      ? `${floor}-${zone.replace(/\s+/g, '')}`
-      : null);
-
-    if (!key) continue;
-
-    hazardMap[key] = evtType;
-
-    // Only FIRE/SMOKE with high confidence are hard-blocked
-    const isBlocking =
-      (evtType === 'FIRE' || evtType === 'SMOKE') &&
-      (inc.confidence ?? 1) > 0.8;
-
-    if (isBlocking) blocked.push(key);
-  }
-
-  // Return array form for backward-compatibility, plus the full hazard map
-  return blocked; // primary return stays as array for LiveMap compat
-}
-
-/**
- * Extended version (use when LiveMap is updated to consume it).
- * Returns { blocked, hazardMap } for full weight-inflation support.
- */
-export function getBlockedNodesExtended(incidents) {
-  if (!Array.isArray(incidents)) return { blocked: [], hazardMap: {} };
-
-  const blocked   = [];
-  const hazardMap = {};
-
-  for (const inc of incidents) {
-    if (inc.status !== 'ACTIVE') continue;
-
-    const floor   = inc.location?.floor;
-    const zone    = inc.location?.zone;
-    const nodeId  = inc.location?.nodeId;
-    const evtType = inc.event_type;
-
-    const key = nodeId || (floor != null && zone
-      ? `${floor}-${zone.replace(/\s+/g, '')}`
-      : null);
-
-    if (!key) continue;
-
-    hazardMap[key] = evtType;
+    const allAffectedNodes = new Set(affected);
+    const primaryKey = nodeId || (floor != null && zone ? `${floor}-${zone.replace(/\s+/g, '')}` : null);
+    if (primaryKey) allAffectedNodes.add(primaryKey);
 
     const isBlocking =
       (evtType === 'FIRE' || evtType === 'SMOKE') &&
       (inc.confidence ?? 1) > 0.8;
 
-    if (isBlocking) blocked.push(key);
+    for (const nodeKey of allAffectedNodes) {
+      hazardMap[nodeKey] = evtType;
+      if (isBlocking) blocked.push(nodeKey);
+    }
   }
 
   return { blocked, hazardMap };
