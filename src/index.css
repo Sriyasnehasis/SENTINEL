@@ -149,3 +149,17 @@ body::after {
 ::-webkit-scrollbar-thumb { background: var(--border-dim); }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
+/* Focused Incident Glow */
+.focused-incident {
+  background: rgba(0, 245, 255, 0.08) !important;
+  border-left: 2px solid var(--primary) !important;
+  box-shadow: inset 0 0 15px rgba(0, 245, 255, 0.2);
+  animation: focused-glow 2s ease-in-out infinite;
+  z-index: 5;
+}
+
+@keyframes focused-glow {
+  0%, 100% { box-shadow: inset 0 0 15px rgba(0, 245, 255, 0.2), 0 0 5px rgba(0, 245, 255, 0.1); }
+  50% { box-shadow: inset 0 0 25px rgba(0, 245, 255, 0.4), 0 0 15px rgba(0, 245, 255, 0.3); }
+}
+

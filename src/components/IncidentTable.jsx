@@ -150,7 +150,7 @@ function LocationManager({ incident, onUpdate, onClose }) {
   );
 }
 
-export default function IncidentTable() {
+export default function IncidentTable({ focusedIncidentId, onFocus }) {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -226,6 +226,7 @@ export default function IncidentTable() {
           <div
             key={inc.id}
             onClick={() => {
+              if (onFocus) onFocus(inc);
               if (inc.location?.nodeId) {
                 window.dispatchEvent(new CustomEvent('sentinel-focus-node', { detail: inc.location.nodeId }));
               }
@@ -246,6 +247,7 @@ export default function IncidentTable() {
               animation: `fadeIn 0.3s ease-out ${idx * 0.05}s both`,
               position: "relative"
             }}
+            className={focusedIncidentId === inc.id ? "focused-incident" : ""}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "rgba(0, 245, 255, 0.08)";
               e.currentTarget.style.borderLeftColor = "var(--primary)";
