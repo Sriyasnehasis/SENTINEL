@@ -31,7 +31,7 @@ export default function SitRepPanel() {
           setError(null);
 
           if (current.severity === "P0") {
-            const baseUrl = import.meta.env.VITE_EVENT_PROCESSOR_URL || "https://sentinel-5ytz.onrender.com";
+            const baseUrl = import.meta.env.VITE_EVENT_PROCESSOR_URL || "https://sentinel-processor-final.onrender.com";
             
             // 📡 P0 Mass Notification Dispatch (Phase 4 Logic)
             fetch(`${baseUrl}/dispatch-fcm`, {
