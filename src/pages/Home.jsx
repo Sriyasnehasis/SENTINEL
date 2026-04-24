@@ -14,7 +14,7 @@ import ZoneClearButton from "../components/ZoneClearButton";
 import DemoButton from "../components/DemoButton";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [stats, setStats] = useState({ active: 0, total: 0, resolved: 0 });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [systemStatus, setSystemStatus] = useState("NOMINAL");
@@ -29,7 +29,6 @@ export default function Home() {
       setLastUpdated(new Date());
       setSystemStatus(active > 0 ? (active >= 3 ? "CRITICAL" : "WARNING") : "NOMINAL");
       
-      // If the currently focused incident is resolved or removed, clear focus
       if (focusedIncident) {
         const stillActive = all.find(i => i.id === focusedIncident.id && i.status === "ACTIVE");
         if (!stillActive) setFocusedIncident(null);
@@ -45,6 +44,23 @@ export default function Home() {
   };
   const sysDisplay = statusConfig[systemStatus];
 
+  if (!isAdmin) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-void)", padding: "2rem" }}>
+        <div className="glass-card animate-in" style={{ padding: "4rem", textAlign: "center", border: "1px solid var(--primary-glow)", maxWidth: "600px" }}>
+          <div className="hud-label" style={{ marginBottom: "2rem", borderLeftColor: "var(--primary)" }}>S_NODE_USER_ACCESS</div>
+          <h1 style={{ fontSize: "2.5rem", fontWeight: 800, color: "var(--primary)", marginBottom: "1rem", letterSpacing: "0.1em" }}>USER_TERMINAL</h1>
+          <p style={{ color: "var(--text-muted)", fontFamily: "JetBrains Mono", fontSize: "0.9rem", lineHeight: 1.6 }}>
+            Welcome to the Sentinel interface. You are currently logged in with limited privileges. 
+            Full command authorization is restricted to administrative personnel.
+          </p>
+          <div style={{ marginTop: "3rem", height: "1px", background: "linear-gradient(90deg, transparent, var(--primary), transparent)", opacity: 0.3 }} />
+          <div style={{ marginTop: "1rem", fontSize: "0.6rem", color: "var(--primary)", fontFamily: "JetBrains Mono" }}>THIS IS USER WINDOW // ACCESS_LEVEL: 0</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container animate-in" style={{ padding: 0 }}>
       {/* Background HUD Overlay */}
@@ -55,7 +71,7 @@ export default function Home() {
         zIndex: 100,
         pointerEvents: 'none'
       }}>
-        <div className="hud-label">S_NODE_ALPHA // LIVE</div>
+        <div className="hud-label">S_NODE_ALPHA // ADMIN_LIVE</div>
         <h1 style={{ fontSize: '1.2rem', color: 'var(--primary)', marginTop: '0.5rem', letterSpacing: '0.2em' }}>
           SENTINEL_OS
         </h1>
@@ -86,17 +102,50 @@ export default function Home() {
             <SitRepPanel focusedIncident={focusedIncident} />
           </div>
 
-          {/* Emergency Command HUD */}
-          <div className="glass-card" style={{ padding: '1.5rem' }}>
-            <div className="hud-label" style={{ marginBottom: '1rem' }}>CMD_AUTH_ZONE</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <DemoButton />
-              <ZoneClearButton staffId={user?.uid || "demo-staff"} zone="MT-4-EastHall" />
+          <div style={{ 
+            background: 'var(--bg-panel)',
+            padding: '1rem',
+            borderRadius: '2px',
+            border: '1px solid var(--border-dim)',
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              borderBottom: '1px solid var(--border-dim)',
+              paddingBottom: '0.5rem',
+              marginBottom: '0.5rem'
+            }}>
+              <div className="hud-label" style={{ borderLeftColor: 'var(--primary)', color: 'var(--primary)' }}>AUTH_CMD_TERMINAL_v2.0</div>
+              <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>[SECURE_LINK_ACTIVE]</div>
             </div>
+
+            <div style={{ display: 'flex', gap: '1rem', height: '50px' }}>
+              <div style={{ flex: 1 }}>
+                <DemoButton />
+              </div>
+              <div style={{ flex: 1 }}>
+                <ZoneClearButton staffId={user?.uid || "demo-staff"} zone="MT-4-EastHall" />
+              </div>
+            </div>
+
+            {/* Matrix-like scanline overlay */}
+            <div style={{ 
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+              background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))',
+              backgroundSize: '100% 4px, 3px 100%',
+              pointerEvents: 'none',
+              opacity: 0.3
+            }} />
           </div>
         </div>
 
-        {/* Center/Right: The Orbital Map View — Expanded for better visibility */}
+        {/* Center/Right: The Orbital Map View */}
         <div style={{ gridColumn: 'span 6', position: 'relative' }}>
           <div className="glass-card" style={{ height: 'calc(100vh - 3rem)', padding: '0.5rem' }}>
             <div style={{ 
@@ -114,7 +163,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Far Right: Vertical Stream Sidebar — Narrowed */}
+        {/* Far Right: Vertical Stream Sidebar */}
         <div style={{ gridColumn: 'span 3', height: 'calc(100vh - 3rem)' }}>
           <div className="glass-card" style={{ height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
             <div className="hud-label" style={{ marginBottom: '1rem', fontSize: '0.5rem' }}>INCIDENT_STREAM_V3.0</div>
@@ -145,7 +194,7 @@ export default function Home() {
         pointerEvents: 'none',
         zIndex: 100
       }}>
-        <div>GSC_2026 // NODE_STABLE // {user?.email}</div>
+        <div>GSC_2026 // NODE_STABLE // {user?.email} // ROLE: ADMIN</div>
         <div>SCAN_RADAR: ACTIVE // DIJKSTRA_RESOLVING</div>
       </div>
     </div>
