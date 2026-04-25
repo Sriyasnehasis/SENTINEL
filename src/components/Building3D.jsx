@@ -390,7 +390,6 @@ function MainTower({ activeKeys, selectedNode, hoveredNode, onNodeClick, onNodeH
 
         return (
           <group key={f}>
-<<<<<<< HEAD
             {zones.map(z => (
               <FloorSlab
                 key={z.id}
@@ -410,25 +409,6 @@ function MainTower({ activeKeys, selectedNode, hoveredNode, onNodeClick, onNodeH
               size={[44, 0.3, 7]}
               color="#1a1a3e"
               isActive={false}
-=======
-            <FloorSlab
-              position={[17, y, 0]}
-              size={[16, 0.3, 27.5]}
-              color="#00E5FF"
-              isActive={activeKeys.has(`MT-${f}-EastHall`)}
-            />
-            <FloorSlab
-              position={[0, y, 0]}
-              size={[10, 0.3, 27.5]}
-              color="#651FFF"
-              isActive={activeKeys.has(`MT-${f}-Center`)}
-            />
-            <FloorSlab
-              position={[-17, y, 0]}
-              size={[16, 0.3, 27.5]}
-              color="#00E5FF"
-              isActive={activeKeys.has(`MT-${f}-WestHall`)}
->>>>>>> origin/main
             />
             <Text
               position={[0, y + 0.5, -13]}
