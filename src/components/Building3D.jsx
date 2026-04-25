@@ -25,8 +25,6 @@ const NUM_FLOORS_MT  = 5; // Main Tower: floors 0–4 + roof slab
 const NUM_FLOORS_ER  = 2; // ER Wing: floors 0–1
 const NUM_FLOORS_ICU = 4; // ICU Wing: floors 1–4
 const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
-const NUM_FLOORS_ICU = 4; // ICU Wing: floors 1–4
-const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 
