@@ -21,7 +21,7 @@ import { zoneCoordinates3D } from '../utils/buildingGraph';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FH = 5;             // Floor height (metres in scene units)
-const NUM_FLOORS_MT  = 6; // Main Tower: floors 0–5 + roof slab
+const NUM_FLOORS_MT  = 5; // Main Tower: floors 0–4 + roof slab
 const NUM_FLOORS_ER  = 2; // ER Wing: floors 0–1
 const NUM_FLOORS_ICU = 4; // ICU Wing: floors 1–4
 const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
@@ -32,33 +32,35 @@ const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
  * A single floor slab with edge outline.
  * Optimized for a 'Digital Glass' aesthetic.
  */
-function FloorSlab({ position, size, color = '#00E5FF', isActive }) {
+function FloorSlab({ position, size, color = '#00E5FF', isActive, isHovered, isSelected, onHover, onClick }) {
   const [w, h, d] = size;
-  const dangerColor = '#ff0055'; // Matches var(--accent) in new UI
+  const dangerColor = '#ff0055'; 
+  const selectionColor = '#00f5ff';
 
   return (
-    <group position={position}>
-      {/* Danger Overlay: Only visible when incident is active on this floor */}
-      {isActive && (
-        <mesh>
-          <boxGeometry args={size} />
-          <meshStandardMaterial
-            color={dangerColor}
-            transparent
-            opacity={0.45}
-            emissive={dangerColor}
-            emissiveIntensity={1.2}
-          />
-        </mesh>
-      )}
+    <group 
+      position={position}
+      onPointerOver={(e) => { e.stopPropagation(); onHover && onHover(true); }}
+      onPointerOut={(e) => { e.stopPropagation(); onHover && onHover(false); }}
+      onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
+    >
+      <mesh>
+        <boxGeometry args={size} />
+        <meshStandardMaterial
+          color={isActive ? dangerColor : isSelected ? selectionColor : color}
+          transparent
+          opacity={isActive ? 0.45 : isSelected ? 0.25 : isHovered ? 0.15 : 0.05}
+          emissive={isActive ? dangerColor : isSelected ? selectionColor : color}
+          emissiveIntensity={isActive ? 1.2 : isSelected ? 0.8 : isHovered ? 0.4 : 0}
+        />
+      </mesh>
       
-      {/* Structural Outlines: Brighter for better visibility from distance */}
       <lineSegments>
         <edgesGeometry args={[new THREE.BoxGeometry(w, h, d)]} />
         <lineBasicMaterial
-          color={isActive ? dangerColor : color}
+          color={isActive ? dangerColor : isSelected || isHovered ? selectionColor : color}
           transparent
-          opacity={isActive ? 1.0 : 0.55}
+          opacity={isActive ? 1.0 : isSelected || isHovered ? 0.9 : 0.55}
         />
       </lineSegments>
     </group>
@@ -339,7 +341,7 @@ function PathArrow({ start, end, color = "#FFEB3B" }) {
  * Each floor has East Hall, Center, and West Hall slabs + a floor label.
  * Corner & mid-point structural pillars run the full height.
  */
-function MainTower({ activeKeys }) {
+function MainTower({ activeKeys, selectedNode, hoveredNode, onNodeClick, onNodeHover }) {
   return (
     <group>
       {/* Structural corner + mid pillars */}
@@ -358,27 +360,28 @@ function MainTower({ activeKeys }) {
       {/* Floor slabs */}
       {Array.from({ length: NUM_FLOORS_MT }, (_, f) => f).map(f => {
         const y = FH * f;
+        const zones = [
+          { id: `MT-${f}-EastHall`, pos: [18, y, 0], size: [14, 0.3, 24], color: "#00E5FF" },
+          { id: `MT-${f}-Center`,   pos: [0, y, 0],  size: [10, 0.3, 24], color: "#651FFF" },
+          { id: `MT-${f}-WestHall`, pos: [-18, y, 0], size: [14, 0.3, 24], color: "#00E5FF" }
+        ];
+
         return (
           <group key={f}>
-            <FloorSlab
-              position={[18, y, 0]}
-              size={[14, 0.3, 24]}
-              color="#00E5FF"
-              isActive={activeKeys.has(`MT-${f}-EastHall`)}
-            />
-            <FloorSlab
-              position={[0, y, 0]}
-              size={[10, 0.3, 24]}
-              color="#651FFF"
-              isActive={activeKeys.has(`MT-${f}-Center`)}
-            />
-            <FloorSlab
-              position={[-18, y, 0]}
-              size={[14, 0.3, 24]}
-              color="#00E5FF"
-              isActive={activeKeys.has(`MT-${f}-WestHall`)}
-            />
-            {/* Back corridor strip — aligned to edge for ER bridge */}
+            {zones.map(z => (
+              <FloorSlab
+                key={z.id}
+                position={z.pos}
+                size={z.size}
+                color={z.color}
+                isActive={activeKeys.has(z.id)}
+                isSelected={selectedNode === z.id}
+                isHovered={hoveredNode === z.id}
+                onHover={(h) => onNodeHover && onNodeHover(h ? z.id : null)}
+                onClick={() => onNodeClick && onNodeClick(z.id)}
+              />
+            ))}
+            {/* Back corridor strip */}
             <FloorSlab
               position={[0, y, -11.5]}
               size={[44, 0.3, 7]}
@@ -553,7 +556,16 @@ function OPDWing({ activeKeys }) {
  *   recentIncident   – the newest incident to focus on
  *   highlightActive  – boolean to trigger the temporary focus effect
  */
-export function BuildingModel({ activeIncidents = [], evacuationRoute = [], recentIncident = null, highlightActive = false }) {
+export function BuildingModel({ 
+  activeIncidents = [], 
+  evacuationRoute = [], 
+  recentIncident = null, 
+  highlightActive = false,
+  selectedNode = null,
+  hoveredNode = null,
+  onNodeClick,
+  onNodeHover
+}) {
   // Build a Set of "active keys" derived from incident location data.
   // Keys match the pattern used in FloorSlab isActive checks: "<wing>-<floor>-<zone>".
   const activeKeys = useMemo(() => {
@@ -658,7 +670,11 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
       </Text>
 
       {/* ── Building wings ─────────────────────────────────────────────── */}
-      <MainTower activeKeys={activeKeys} />
+      <MainTower 
+        activeKeys={activeKeys} 
+        selectedNode={selectedNode} hoveredNode={hoveredNode} 
+        onNodeClick={onNodeClick} onNodeHover={onNodeHover} 
+      />
       <ERWing    activeKeys={activeKeys} />
       <ICUWing   activeKeys={activeKeys} />
       <OPDWing   activeKeys={activeKeys} />

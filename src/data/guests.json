@@ -29,8 +29,8 @@
   {
     "guest_id": "g004",
     "name": "Pierre Dubois",
-    "room": "601",
-    "floor": 6,
+    "room": "501",
+    "floor": 5,
     "language": "fr",
     "mobility_impaired": true,
     "fcm_token": "mock_token_004"
@@ -83,8 +83,8 @@
   {
     "guest_id": "g010",
     "name": "Anita Patel",
-    "room": "608",
-    "floor": 6,
+    "room": "508",
+    "floor": 5,
     "language": "hi",
     "mobility_impaired": false,
     "fcm_token": "mock_token_010"

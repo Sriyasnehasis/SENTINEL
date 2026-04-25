@@ -64,6 +64,13 @@ export default function SitRepPanel({ focusedIncident }) {
   }, []);
 
   const effectiveSitRep = useMemo(() => {
+    // 🛡️ Intelligence Fix: If there are no ACTIVE incidents, force a NOMINAL state 
+    // even if stale data exists in the Firestore session document.
+    const hasActive = focusedIncident && focusedIncident.status === 'ACTIVE';
+    if (!focusedIncident && (!sitrep || sitrep.incident_count === 0)) {
+      return null; 
+    }
+
     if (focusedIncident) {
       const type = focusedIncident.event_type;
       const nodeId = focusedIncident.location?.nodeId || "UNKNOWN";

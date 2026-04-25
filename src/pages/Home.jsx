@@ -5,16 +5,18 @@ import {
   addDoc, serverTimestamp
 } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
-import { Shield, Activity, AlertTriangle, CheckCircle, Wifi, Clock, MapPin } from "lucide-react";
+import { Shield, Activity, AlertTriangle, CheckCircle, Wifi, Clock, MapPin, LogOut, User, Filter } from "lucide-react";
 import IncidentTable from "../components/IncidentTable";
 import SitRepPanel from "../components/SitRepPanel";
 import LiveMap from "../components/LiveMap";
 import DialogflowWidget from "../components/DialogflowWidget";
 import ZoneClearButton from "../components/ZoneClearButton";
 import DemoButton from "../components/DemoButton";
+import GuestDashboard from "../components/GuestDashboard";
+import RescueRequestPanel from "../components/RescueRequestPanel";
 
 export default function Home() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const [stats, setStats] = useState({ active: 0, total: 0, resolved: 0 });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [systemStatus, setSystemStatus] = useState("NOMINAL");
@@ -46,18 +48,10 @@ export default function Home() {
 
   if (!isAdmin) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-void)", padding: "2rem" }}>
-        <div className="glass-card animate-in" style={{ padding: "4rem", textAlign: "center", border: "1px solid var(--primary-glow)", maxWidth: "600px" }}>
-          <div className="hud-label" style={{ marginBottom: "2rem", borderLeftColor: "var(--primary)" }}>S_NODE_USER_ACCESS</div>
-          <h1 style={{ fontSize: "2.5rem", fontWeight: 800, color: "var(--primary)", marginBottom: "1rem", letterSpacing: "0.1em" }}>USER_TERMINAL</h1>
-          <p style={{ color: "var(--text-muted)", fontFamily: "JetBrains Mono", fontSize: "0.9rem", lineHeight: 1.6 }}>
-            Welcome to the Sentinel interface. You are currently logged in with limited privileges. 
-            Full command authorization is restricted to administrative personnel.
-          </p>
-          <div style={{ marginTop: "3rem", height: "1px", background: "linear-gradient(90deg, transparent, var(--primary), transparent)", opacity: 0.3 }} />
-          <div style={{ marginTop: "1rem", fontSize: "0.6rem", color: "var(--primary)", fontFamily: "JetBrains Mono" }}>THIS IS USER WINDOW // ACCESS_LEVEL: 0</div>
-        </div>
-      </div>
+      <>
+        <GuestDashboard />
+        <DialogflowWidget />
+      </>
     );
   }
 
@@ -75,6 +69,29 @@ export default function Home() {
         <h1 style={{ fontSize: '1.2rem', color: 'var(--primary)', marginTop: '0.5rem', letterSpacing: '0.2em' }}>
           SENTINEL_OS
         </h1>
+      </div>
+
+      {/* Top Right Actions */}
+      <div style={{
+        position: 'fixed',
+        top: '2rem',
+        right: '2rem',
+        zIndex: 100
+      }}>
+        <button 
+          onClick={logout} 
+          className="btn" 
+          style={{ 
+            fontSize: '0.6rem', 
+            padding: '0.5rem 1rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            background: 'rgba(0, 245, 255, 0.05)'
+          }}
+        >
+          <LogOut size={14} /> TERMINATE_SESSION
+        </button>
       </div>
 
       <div className="asymmetric-layout" style={{ minHeight: '100vh', padding: '1.5rem' }}>
@@ -100,6 +117,7 @@ export default function Home() {
           <div className="glass-card" style={{ padding: '1.5rem', flex: '1' }}>
             <div className="hud-label" style={{ marginBottom: '1rem' }}>TACTICAL_ANALYSIS</div>
             <SitRepPanel focusedIncident={focusedIncident} />
+            <RescueRequestPanel />
           </div>
 
           <div style={{ 

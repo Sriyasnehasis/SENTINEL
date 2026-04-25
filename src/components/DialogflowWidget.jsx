@@ -6,7 +6,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  * SENTINEL Phase 2 — Voice Hub (Dialogflow Messenger)
  * Final Version for Phase 3 Submission.
  */
-export default function DialogflowWidget() {
+export default function DialogflowWidget({ inline = false }) {
   
   const handleUserMessage = async (event) => {
     // 🎤 Extract message text
@@ -65,15 +65,21 @@ export default function DialogflowWidget() {
     };
   }, []);
 
+  const containerStyle = inline 
+    ? { position: "relative", width: "100%", height: "200px", overflow: "hidden" }
+    : { position: "fixed", bottom: "30px", right: "30px", zIndex: 2000 };
+
   return (
-    <div style={{ position: "fixed", bottom: "20px", left: "20px", zIndex: 1000 }}>
+    <div style={containerStyle}>
        <df-messenger
         location="global"
         project-id={import.meta.env.VITE_DIALOGFLOW_PROJECT_ID || "sentinel-494020"}
         agent-id={import.meta.env.VITE_DIALOGFLOW_AGENT_ID || "282d5d70-fce9-4da7-bd24-8d7fbb420f21"}
         language-code="en"
         chat-title="SENTINEL EMERGENCY VOICE"
-        wait-open="true"
+        wait-open="false"
+        expand="false"
+        allow-mic="true"
       ></df-messenger>
       
       <style>{`
@@ -84,9 +90,11 @@ export default function DialogflowWidget() {
           --df-messenger-input-box-color: #1e293b;
           --df-messenger-font-color: white;
           --df-messenger-user-message: #334155;
-          --df-messenger-box-border-radius: 12px;
+          --df-messenger-box-border-radius: 4px;
           --df-messenger-focus-color: #ef4444;
+          ${inline ? 'height: 100% !important; --df-messenger-chat-window-height: 200px;' : ''}
         }
+        ${inline ? 'df-messenger-button { display: none !important; }' : ''}
       `}</style>
     </div>
   );

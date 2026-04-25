@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Landing from "./pages/Landing";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getToken, onMessage } from "firebase/messaging";
 import { doc, setDoc } from "firebase/firestore";
@@ -100,10 +101,10 @@ function App() {
     <Router>
       <AuthProvider>
         <div className="app-container">
-          <Navbar />
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Home />

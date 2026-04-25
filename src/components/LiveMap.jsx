@@ -1,33 +1,46 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Canvas } from '@react-three/fiber';
-import { Stars, CameraControls, Environment } from '@react-three/drei';
+import { Stars, CameraControls, Environment, Text, Sphere, Html } from '@react-three/drei';
 import { db } from "../firebase";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { dijkstra, getBlockedNodes } from "../utils/dijkstra";
-import { buildingGraph, zoneCoordinates3D } from "../utils/buildingGraph";
+import { buildingGraph, zoneCoordinates3D, hospitalData } from "../utils/buildingGraph";
 import { BuildingModel } from "./Building3D";
-import { AlertTriangle } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ASSEMBLY_GOALS = ["EXT-Assembly-Front", "EXT-Assembly-Rear"];
 const DEFAULT_START = "MT-G-Lobby";
 
-export default function LiveMap() {
+function UserHighlight({ position }) {
+  return (
+    <group position={[position[0], position[1] + 0.5, position[2]]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.5, 1.8, 32]} />
+        <meshBasicMaterial color="var(--neon-green)" transparent opacity={0.8} />
+      </mesh>
+      <Text position={[0, 2, 0]} fontSize={0.8} color="white">YOU_ARE_HERE</Text>
+      <Sphere args={[0.3, 16, 16]}>
+        <meshBasicMaterial color="var(--neon-green)" />
+      </Sphere>
+    </group>
+  );
+}
+
+export default function LiveMap({ userNode = null, isEmergency = false, onNodeSelect = null }) {
   const [incidents, setIncidents] = useState([]);
-  const [bestPath, setBestPath] = useState([]);
-  const [startingNode, setStartingNode] = useState(DEFAULT_START);
   const [recentIncident, setRecentIncident] = useState(null);
   const [highlightActive, setHighlightActive] = useState(false);
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
+  
   const lastIncidentCount = useRef(0);
   const controlsRef = useRef();
 
-  // 1. Sync active incidents from Firestore
+  // 1. Sync active & investigating incidents
   useEffect(() => {
-    const q = query(collection(db, "incidents"), where("status", "==", "ACTIVE"));
-    return onSnapshot(q, (snap) => {
+    const q = query(collection(db, "incidents"), where("status", "in", ["ACTIVE", "INVESTIGATING"]));
+    const unsubIncidents = onSnapshot(q, (snap) => {
       const activeData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
-      // Sort to find the most recently created incident
       const sortedData = [...activeData].sort((a, b) => {
         const timeA = a.created_at?.toMillis ? a.created_at.toMillis() : new Date(a.timestamp).getTime();
         const timeB = b.created_at?.toMillis ? b.created_at.toMillis() : new Date(b.timestamp).getTime();
@@ -36,102 +49,129 @@ export default function LiveMap() {
 
       setIncidents(activeData);
 
-      // FEATURE: Detect NEW incident and trigger focus/highlight
       if (activeData.length > lastIncidentCount.current && sortedData.length > 0) {
         const newest = sortedData[0];
         setRecentIncident(newest);
         setHighlightActive(true);
 
-        // Shift camera focus to the new incident
-        if (controlsRef.current && newest.location?.nodeId) {
+        if (!userNode && controlsRef.current && newest.location?.nodeId) {
           const coords = zoneCoordinates3D[newest.location.nodeId];
           if (coords) {
             controlsRef.current.setLookAt(
-              coords[0] + 25, coords[1] + 20, coords[2] + 35, // Position
-              coords[0], coords[1], coords[2],               // Target
-              true                                            // Smooth transition
+              coords[0] + 25, coords[1] + 20, coords[2] + 35, 
+              coords[0], coords[1], coords[2],               
+              true                                            
             );
-
-            // Revert focus after 4.5 seconds
-            setTimeout(() => {
-              setHighlightActive(false);
-              if (controlsRef.current) {
-                controlsRef.current.setLookAt(0, 60, 100, 0, 0, 0, true);
-              }
-            }, 4500);
+            setTimeout(() => setHighlightActive(false), 4500);
           }
         }
       }
-      
       lastIncidentCount.current = activeData.length;
-
-      // Update pathfinding starting node
-      if (activeData.length > 0 && activeData[0].location?.nodeId) {
-        setStartingNode(activeData[0].location.nodeId);
-      } else {
-        setStartingNode(DEFAULT_START);
-      }
     });
-  }, []);
 
-  // 2. Calculate rescue path
-  useEffect(() => {
-    if (buildingGraph && startingNode && zoneCoordinates3D[startingNode]) {
+    return () => unsubIncidents();
+  }, [userNode]);
+
+  // 2. Pathfinding
+  const pathStartNode = useMemo(() => {
+    if (userNode) return userNode;
+    return incidents.length > 0 && incidents[0].location?.nodeId ? incidents[0].location.nodeId : DEFAULT_START;
+  }, [userNode, incidents]);
+
+  const bestPath = useMemo(() => {
+    const activeIsEmergency = userNode ? isEmergency : incidents.length > 0;
+    if (activeIsEmergency && pathStartNode && buildingGraph) {
       const { blocked, hazardMap } = getBlockedNodes(incidents);
       let calculatedPath = [];
-      
       ASSEMBLY_GOALS.forEach(goal => {
-        const path = dijkstra(buildingGraph, startingNode, goal, blocked, hazardMap);
+        const path = dijkstra(buildingGraph, pathStartNode, goal, blocked, hazardMap);
         if (path.length > 0 && (calculatedPath.length === 0 || path.length < calculatedPath.length)) {
           calculatedPath = path;
         }
       });
-
-      setBestPath(calculatedPath);
+      return calculatedPath;
     }
-  }, [incidents, startingNode]);
+    return [];
+  }, [isEmergency, pathStartNode, incidents, userNode]);
 
-  // 3. Listen for manual focus events from table
+  // 3. Focus handling
   useEffect(() => {
-    const handleFocus = (e) => {
-      const nodeId = e.detail;
-      if (nodeId && zoneCoordinates3D[nodeId]) {
-        setStartingNode(nodeId);
+    if (controlsRef.current && userNode) {
+      const coords = zoneCoordinates3D[userNode];
+      if (coords) {
+        controlsRef.current.setLookAt(coords[0] + 40, coords[1] + 30, coords[2] + 40, coords[0], coords[1], coords[2], true);
       }
-    };
-    window.addEventListener('sentinel-focus-node', handleFocus);
-    return () => window.removeEventListener('sentinel-focus-node', handleFocus);
-  }, []);
+    }
+  }, [userNode]);
+
+  // 4. Node selection event handling
+  const handleNodeClick = (nodeId) => {
+    if (userNode) return; // Guests have read-only map
+    setSelectedNode(nodeId);
+    if (onNodeSelect) onNodeSelect(nodeId);
+    
+    // Zoom to selected node
+    if (controlsRef.current && zoneCoordinates3D[nodeId]) {
+      const c = zoneCoordinates3D[nodeId];
+      controlsRef.current.setLookAt(c[0] + 15, c[1] + 10, c[2] + 20, c[0], c[1], c[2], true);
+    }
+  };
 
   return (
     <div style={{ height: "100%", width: "100%", position: "relative", overflow: "hidden", background: "transparent" }}>
-      <Canvas camera={{ position: [0, 60, 100], fov: 40 }}>
+      <Canvas camera={{ position: [0, 60, 100], fov: 35 }}>
         <Environment preset="night" />
         <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-        
         <CameraControls ref={controlsRef} />
-        <ambientLight intensity={0.5} />
-
-        {/* Use the reliable BuildingModel with focus props */}
+        <ambientLight intensity={0.4} />
+        
         <BuildingModel 
           activeIncidents={incidents} 
           evacuationRoute={bestPath} 
           recentIncident={recentIncident}
           highlightActive={highlightActive}
+          selectedNode={selectedNode}
+          hoveredNode={hoveredNode}
+          onNodeClick={handleNodeClick}
+          onNodeHover={setHoveredNode}
         />
+
+        {userNode && zoneCoordinates3D[userNode] && (
+          <UserHighlight position={zoneCoordinates3D[userNode]} />
+        )}
       </Canvas>
 
-      {/* HUD Notification — Modernized for new UI */}
-      <div style={{ position: "absolute", top: "20px", left: "20px", pointerEvents: "none" }}>
+      {/* Admin Information Overlay */}
+      {!userNode && selectedNode && (
+        <div style={{
+          position: "absolute", top: "20px", left: "20px", 
+          background: "rgba(15, 23, 42, 0.9)", border: "1px solid var(--primary)",
+          padding: "1rem", color: "white", fontFamily: "JetBrains Mono",
+          pointerEvents: "none", borderRadius: "2px"
+        }}>
+          <div style={{ fontSize: "0.55rem", color: "var(--primary)" }}>SELECTED_NODE_UPLINK</div>
+          <div style={{ fontSize: "0.9rem", fontWeight: 900 }}>{selectedNode}</div>
+          <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", marginTop: "4px" }}>
+            {hospitalData.nodes[selectedNode]?.name}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom HUD */}
+      <div style={{ position: "absolute", bottom: "20px", left: "20px", pointerEvents: "none" }}>
         <div style={{ 
-          background: "var(--bg-panel)", 
+          background: "rgba(15, 23, 42, 0.8)", 
           padding: "10px 15px", 
-          border: "1px solid var(--border-dim)",
-          borderLeft: "4px solid var(--accent)",
+          border: "1px solid var(--border-tactical)",
+          borderLeft: `4px solid ${userNode ? (isEmergency ? 'var(--accent)' : 'var(--neon-green)') : 'var(--primary)'}`,
           fontFamily: "JetBrains Mono"
         }}>
-          <div style={{ fontSize: "0.55rem", color: "var(--text-muted)", fontWeight: 800, textTransform: "uppercase" }}>Emergency Node Active</div>
-          <div style={{ fontSize: "0.85rem", color: "var(--text-main)", fontWeight: 700 }}>ORIGIN::{startingNode}</div>
+          <div style={{ fontSize: "0.55rem", color: "var(--text-muted)", fontWeight: 800 }}>
+            {userNode ? (isEmergency ? "EVACUATION_MODE" : "UNIT_NOMINAL") : "CMD_RADAR_ACTIVE"}
+          </div>
+          <div style={{ fontSize: "0.85rem", color: "white", fontWeight: 700 }}>
+            {userNode ? `LOCATION::${userNode}` : `TRACKING::${incidents.length}_SIGNALS`}
+          </div>
         </div>
       </div>
     </div>

@@ -27,6 +27,14 @@ export default function ZoneClearButton({ staffId, zone }) {
       );
       
       await Promise.all(updatePromises);
+      
+      // Wipe AI SitRep to prevent stale warnings
+      await setDoc(doc(db, "sessions", "current"), {
+        current_sitrep: null,
+        last_updated: new Date().toISOString(),
+        incident_count: 0
+      }, { merge: true });
+
       console.log(`✅ Zone ${zone} marked as clear.`);
       alert(`✅ INCIDENT_LOGS_PURGED`);
     } catch (error) {
