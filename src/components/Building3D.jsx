@@ -579,24 +579,16 @@ function OPDWing({ activeKeys }) {
  *   recentIncident   – the newest incident to focus on
  *   highlightActive  – boolean to trigger the temporary focus effect
  */
-<<<<<<< HEAD
 export function BuildingModel({ 
   activeIncidents = [], 
   evacuationRoute = [], 
+  multiPaths = [],
   recentIncident = null, 
   highlightActive = false,
   selectedNode = null,
   hoveredNode = null,
   onNodeClick,
   onNodeHover
-=======
-export function BuildingModel({
-  activeIncidents = [],
-  evacuationRoute = [],
-  multiPaths = [],
-  recentIncident = null,
-  highlightActive = false
->>>>>>> origin/main
 }) {
   // Build a Set of "active keys" derived from incident location data.
   // Keys match the pattern used in FloorSlab isActive checks: "<wing>-<floor>-<zone>".
