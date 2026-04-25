@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Canvas } from '@react-three/fiber';
 import { Stars, CameraControls, Environment } from '@react-three/drei';
 import { db } from "../firebase";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, doc } from "firebase/firestore";
 import { dijkstra, getBlockedNodes } from "../utils/dijkstra";
 import { buildingGraph, zoneCoordinates3D } from "../utils/buildingGraph";
 import { BuildingModel } from "./Building3D";
@@ -14,12 +14,23 @@ const DEFAULT_START = "MT-G-Lobby";
 
 export default function LiveMap() {
   const [incidents, setIncidents] = useState([]);
+  const [occupants, setOccupants] = useState([]);
+  const [multiPaths, setMultiPaths] = useState([]);
   const [bestPath, setBestPath] = useState([]);
   const [startingNode, setStartingNode] = useState(DEFAULT_START);
   const [recentIncident, setRecentIncident] = useState(null);
   const [highlightActive, setHighlightActive] = useState(false);
   const lastIncidentCount = useRef(0);
+  const lastFocusedId = useRef(null);
   const controlsRef = useRef();
+
+  // Configure smoother camera defaults on mount
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.smoothTime = 0.8;         // Higher for more cinematic feel (default 0.25)
+      controlsRef.current.draggingSmoothTime = 0.4; // Smoother manual movement
+    }
+  }, []);
 
   // 1. Sync active incidents from Firestore
   useEffect(() => {
@@ -39,26 +50,31 @@ export default function LiveMap() {
       // FEATURE: Detect NEW incident and trigger focus/highlight
       if (activeData.length > lastIncidentCount.current && sortedData.length > 0) {
         const newest = sortedData[0];
-        setRecentIncident(newest);
-        setHighlightActive(true);
+        
+        // Prevent redundant camera jumps if snapshot fires multiple times for same incident
+        if (newest.id !== lastFocusedId.current) {
+          lastFocusedId.current = newest.id;
+          setRecentIncident(newest);
+          setHighlightActive(true);
 
-        // Shift camera focus to the new incident
-        if (controlsRef.current && newest.location?.nodeId) {
-          const coords = zoneCoordinates3D[newest.location.nodeId];
-          if (coords) {
-            controlsRef.current.setLookAt(
-              coords[0] + 25, coords[1] + 20, coords[2] + 35, // Position
-              coords[0], coords[1], coords[2],               // Target
-              true                                            // Smooth transition
-            );
+          // Shift camera focus to the new incident with optimized transition
+          if (controlsRef.current && newest.location?.nodeId) {
+            const coords = zoneCoordinates3D[newest.location.nodeId];
+            if (coords) {
+              controlsRef.current.setLookAt(
+                coords[0] + 18, coords[1] + 15, coords[2] + 25, // Slightly closer for less "jump"
+                coords[0], coords[1], coords[2],               // Target
+                true                                            // Smooth transition
+              );
 
-            // Revert focus after 4.5 seconds
-            setTimeout(() => {
-              setHighlightActive(false);
-              if (controlsRef.current) {
-                controlsRef.current.setLookAt(0, 60, 100, 0, 0, 0, true);
-              }
-            }, 4500);
+              // Revert focus after 5 seconds
+              setTimeout(() => {
+                setHighlightActive(false);
+                if (controlsRef.current) {
+                  controlsRef.current.setLookAt(0, 60, 100, 0, 0, 0, true);
+                }
+              }, 5000);
+            }
           }
         }
       }
@@ -74,22 +90,52 @@ export default function LiveMap() {
     });
   }, []);
 
-  // 2. Calculate rescue path
+  // 2. Sync session metadata (Occupants)
   useEffect(() => {
-    if (buildingGraph && startingNode && zoneCoordinates3D[startingNode]) {
-      const { blocked, hazardMap } = getBlockedNodes(incidents);
+    return onSnapshot(doc(db, "sessions", "current"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.occupants) {
+          setOccupants(data.occupants);
+        }
+      }
+    });
+  }, []);
+
+  // 3. Calculate paths for all occupants (or fallback to single incident)
+  useEffect(() => {
+    if (!buildingGraph) return;
+    
+    const { blocked, hazardMap } = getBlockedNodes(incidents);
+    
+    // CASE A: Multi-Occupant Demo Mode
+    if (occupants.length > 0) {
+      const calculatedPaths = occupants.map(occ => {
+        let pathForOcc = [];
+        ASSEMBLY_GOALS.forEach(goal => {
+          const path = dijkstra(buildingGraph, occ.startNode, goal, blocked, hazardMap);
+          if (path.length > 0 && (pathForOcc.length === 0 || path.length < pathForOcc.length)) {
+            pathForOcc = path;
+          }
+        });
+        return { id: occ.id, path: pathForOcc, color: occ.color, label: occ.label };
+      });
+      setMultiPaths(calculatedPaths);
+      setBestPath([]); // Clear legacy single path
+    } 
+    // CASE B: Standard Incident Tracking
+    else if (startingNode && zoneCoordinates3D[startingNode]) {
       let calculatedPath = [];
-      
       ASSEMBLY_GOALS.forEach(goal => {
         const path = dijkstra(buildingGraph, startingNode, goal, blocked, hazardMap);
         if (path.length > 0 && (calculatedPath.length === 0 || path.length < calculatedPath.length)) {
           calculatedPath = path;
         }
       });
-
       setBestPath(calculatedPath);
+      setMultiPaths([]);
     }
-  }, [incidents, startingNode]);
+  }, [incidents, occupants, startingNode]);
 
   // 3. Listen for manual focus events from table
   useEffect(() => {
@@ -116,6 +162,7 @@ export default function LiveMap() {
         <BuildingModel 
           activeIncidents={incidents} 
           evacuationRoute={bestPath} 
+          multiPaths={multiPaths}
           recentIncident={recentIncident}
           highlightActive={highlightActive}
         />

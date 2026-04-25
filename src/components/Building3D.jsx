@@ -563,10 +563,17 @@ function OPDWing({ activeKeys }) {
  * Props:
  *   activeIncidents  – array of Firestore incident objects (status=ACTIVE)
  *   evacuationRoute  – ordered array of graph node IDs representing the Dijkstra path
+ *   multiPaths       – optional array of path objects { id, path, color, label }
  *   recentIncident   – the newest incident to focus on
  *   highlightActive  – boolean to trigger the temporary focus effect
  */
-export function BuildingModel({ activeIncidents = [], evacuationRoute = [], recentIncident = null, highlightActive = false }) {
+export function BuildingModel({
+  activeIncidents = [],
+  evacuationRoute = [],
+  multiPaths = [],
+  recentIncident = null,
+  highlightActive = false
+}) {
   // Build a Set of "active keys" derived from incident location data.
   // Keys match the pattern used in FloorSlab isActive checks: "<wing>-<floor>-<zone>".
   const activeKeys = useMemo(() => {
@@ -587,7 +594,7 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
     return set;
   }, [activeIncidents]);
 
-  // Convert route node IDs → THREE.Vector3 array for rendering.
+  // Convert single route node IDs → THREE.Vector3 array (fallback)
   const pathPoints = useMemo(() => {
     if (!evacuationRoute || evacuationRoute.length < 2) return [];
     return evacuationRoute
@@ -597,6 +604,18 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
       })
       .filter(Boolean);
   }, [evacuationRoute]);
+
+  // Convert multiPaths → list of THREE.Vector3 arrays
+  const processedMultiPaths = useMemo(() => {
+    if (!multiPaths || multiPaths.length === 0) return [];
+    return multiPaths.map(occ => ({
+      ...occ,
+      points: occ.path.map(node => {
+        const c = zoneCoordinates3D[node];
+        return c ? new THREE.Vector3(c[0], c[1] + 0.8, c[2]) : null;
+      }).filter(Boolean)
+    })).filter(p => p.points.length > 1);
+  }, [multiPaths]);
 
   // Derive world-space positions for hazard beacons.
   const hazardPositions = useMemo(() => {
@@ -684,6 +703,11 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
       <StaircaseShaft x={20} z={-14.5} floors={NUM_FLOORS_MT} color="#00E5FF" isEmergency={false} />
       <StaircaseShaft x={-20} z={-14.5} floors={NUM_FLOORS_MT} color="#00E5FF" isEmergency={false} />
 
+      {/* ── Staircase shafts (Other Wings) ─────────────────────────────── */}
+      <StaircaseShaft x={57} z={-7.2} floors={NUM_FLOORS_ICU} color="#00FF94" isEmergency={false} />
+      <StaircaseShaft x={13} z={-47} floors={NUM_FLOORS_ER} color="#FF6600" isEmergency={false} />
+      <StaircaseShaft x={-51.5} z={-6.2} floors={NUM_FLOORS_OPD} color="#FFB300" isEmergency={false} />
+
       {/* ── Elevator shafts ─────────────────────────────────────────────── */}
       <ElevatorShaft x={10} z={-14.5} floors={NUM_FLOORS_MT} color="#00B0FF" />
       <ElevatorShaft x={-10} z={-14.5} floors={NUM_FLOORS_MT} color="#00B0FF" />
@@ -703,29 +727,41 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
       {/* MT ↔ ER (extended to meet new edge) */}
       <Skybridge start={[0, FH * 1, -15]} end={[0, FH * 1, -31]} color="#FF6600" />
 
-      {/* ── Router dots (derived from graph) ───────────────────────────── */}
-      {Object.entries(zoneCoordinates3D)
-        .filter(([id]) => id.includes('Router'))
-        .map(([id, coords]) => (
-          <RouterDot key={id} position={coords} />
-        ))}
 
-      {/* ── Evacuation route path ───────────────────────────────────────── */}
-      {pathPoints.length > 1 && (
-        <>
+      {/* ── Evacuation route paths ──────────────────────────────────────── */}
+
+      {/* 1. Multi-Occupant Paths (Scenario Mode) */}
+      {processedMultiPaths.map((p, idx) => (
+        <group key={`multi-path-${p.id || idx}`}>
+          <Line points={p.points} color={p.color} lineWidth={6} />
+          {p.points.map((pt, i) => (
+            <group key={`pt-${i}`}>
+              <Sphere args={[0.35, 8, 8]} position={pt}>
+                <meshBasicMaterial color={p.color} />
+              </Sphere>
+              {i < p.points.length - 1 && (
+                <PathArrow start={pt} end={p.points[i + 1]} color={p.color} />
+              )}
+            </group>
+          ))}
+        </group>
+      ))}
+
+      {/* 2. Legacy Fallback Path (Standard Mode) */}
+      {processedMultiPaths.length === 0 && pathPoints.length > 1 && (
+        <group key="legacy-path">
           <Line points={pathPoints} color="#00ff9f" lineWidth={6} />
           {pathPoints.map((pt, i) => (
-            <group key={i}>
+            <group key={`legacy-pt-${i}`}>
               <Sphere args={[0.35, 8, 8]} position={pt}>
                 <meshBasicMaterial color="#00ff9f" />
               </Sphere>
-              {/* Add arrow for each segment */}
               {i < pathPoints.length - 1 && (
                 <PathArrow start={pt} end={pathPoints[i + 1]} />
               )}
             </group>
           ))}
-        </>
+        </group>
       )}
 
       {/* ── Hazard beacons ─────────────────────────────────────────────── */}
