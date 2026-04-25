@@ -706,7 +706,6 @@ export function BuildingModel({
       </Text>
 
       {/* ── Building wings ─────────────────────────────────────────────── */}
-<<<<<<< HEAD
       <MainTower 
         activeKeys={activeKeys} 
         selectedNode={selectedNode} hoveredNode={hoveredNode} 
@@ -715,12 +714,6 @@ export function BuildingModel({
       <ERWing    activeKeys={activeKeys} />
       <ICUWing   activeKeys={activeKeys} />
       <OPDWing   activeKeys={activeKeys} />
-=======
-      <MainTower activeKeys={activeKeys} />
-      <ERWing activeKeys={activeKeys} />
-      <ICUWing activeKeys={activeKeys} />
-      <OPDWing activeKeys={activeKeys} />
->>>>>>> origin/main
 
       {/* ── Staircase shafts (Main Tower) ──────────────────────────────── */}
       {/* Fire-rated (C & D - inner core) */}
