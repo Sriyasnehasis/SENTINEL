@@ -21,8 +21,8 @@ import { zoneCoordinates3D } from '../utils/buildingGraph';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FH = 5;             // Floor height (metres in scene units)
-const NUM_FLOORS_MT  = 6; // Main Tower: floors 0–5 + roof slab
-const NUM_FLOORS_ER  = 2; // ER Wing: floors 0–1
+const NUM_FLOORS_MT = 6; // Main Tower: floors 0–5 + roof slab
+const NUM_FLOORS_ER = 2; // ER Wing: floors 0–1
 const NUM_FLOORS_ICU = 4; // ICU Wing: floors 1–4
 const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
 
@@ -51,7 +51,7 @@ function FloorSlab({ position, size, color = '#00E5FF', isActive }) {
           />
         </mesh>
       )}
-      
+
       {/* Structural Outlines: Brighter for better visibility from distance */}
       <lineSegments>
         <edgesGeometry args={[new THREE.BoxGeometry(w, h, d)]} />
@@ -107,9 +107,9 @@ function HazardBeacon({ position, type }) {
       {/* 1. Floating Octahedron (Core) */}
       <mesh ref={meshRef}>
         <octahedronGeometry args={[0.8, 0]} />
-        <meshStandardMaterial 
-          color={color} 
-          emissive={color} 
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
           emissiveIntensity={2.5}
           metalness={0.9}
           roughness={0.1}
@@ -160,6 +160,12 @@ function FireEscapeColumn({ x, z, floors }) {
           </mesh>
         </group>
       ))}
+
+      {/* Roof cap */}
+      <mesh position={[x, FH * floors + 0.1, z]}>
+        <boxGeometry args={[1.5, 0.2, 1.5]} />
+        <meshStandardMaterial color="#FF3D00" />
+      </mesh>
     </group>
   );
 }
@@ -220,6 +226,12 @@ function StaircaseShaft({ x, z, floors, color = '#00E5FF', isEmergency = false }
         <edgesGeometry args={[new THREE.BoxGeometry(2.05, totalHeight + 0.05, 1.55)]} />
         <lineBasicMaterial color={color} transparent opacity={isEmergency ? 0.8 : 0.35} />
       </lineSegments>
+
+      {/* Roof cap */}
+      <mesh position={[x, totalHeight + 0.05, z]}>
+        <boxGeometry args={[2.1, 0.15, 1.6]} />
+        <meshStandardMaterial color={color} />
+      </mesh>
     </group>
   );
 }
@@ -245,26 +257,31 @@ function RouterDot({ position }) {
 /** Skybridge connecting two world-space points */
 function Skybridge({ start, end, color = '#00B0FF' }) {
   const points = [new THREE.Vector3(...start), new THREE.Vector3(...end)];
-  const mid    = [
+  const mid = [
     (start[0] + end[0]) / 2,
     (start[1] + end[1]) / 2,
     (start[2] + end[2]) / 2,
   ];
-  const dx     = end[0] - start[0];
-  const dz     = end[2] - start[2];
+  const dx = end[0] - start[0];
+  const dz = end[2] - start[2];
   const length = Math.sqrt(dx * dx + dz * dz);
-  const angle  = Math.atan2(dx, dz);
+  // Correctly align the box along the vector from start to end
+  const angle = Math.atan2(-dz, dx);
 
   return (
     <group>
       <Line points={points} color={color} lineWidth={3} />
+
+      {/* The Bridge Slab (Walkway) */}
       <mesh position={mid} rotation={[0, angle, 0]}>
-        <boxGeometry args={[length, 0.5, 2.5]} />
-        <meshStandardMaterial color={color} transparent opacity={0.2} />
+        <boxGeometry args={[length, 0.4, 2.5]} />
+        <meshStandardMaterial color={color} transparent opacity={0.3} />
       </mesh>
+
+      {/* Edge highlight for the slab */}
       <lineSegments position={mid} rotation={[0, angle, 0]}>
-        <edgesGeometry args={[new THREE.BoxGeometry(length + 0.05, 0.55, 2.55)]} />
-        <lineBasicMaterial color={color} transparent opacity={0.5} />
+        <edgesGeometry args={[new THREE.BoxGeometry(length + 0.1, 0.45, 2.55)]} />
+        <lineBasicMaterial color={color} transparent opacity={0.8} />
       </lineSegments>
     </group>
   );
@@ -288,18 +305,18 @@ function FocusHighlight({ position }) {
       {/* Animated Pulse Ring */}
       <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[3, 0.08, 16, 100]} />
-        <meshStandardMaterial 
-          color={alertColor} 
-          transparent 
-          opacity={0.6} 
-          emissive={alertColor} 
-          emissiveIntensity={4} 
+        <meshStandardMaterial
+          color={alertColor}
+          transparent
+          opacity={0.6}
+          emissive={alertColor}
+          emissiveIntensity={4}
         />
       </mesh>
-      
+
       {/* Intense Point Light directly above */}
       <pointLight position={[0, 8, 0]} intensity={15} color="#FFEB3B" distance={40} decay={2} />
-      
+
       {/* Ground Glow */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -1.3, 0]}>
         <circleGeometry args={[4.0, 32]} />
@@ -312,14 +329,14 @@ function FocusHighlight({ position }) {
 /** Flowing directional arrow for evacuation paths */
 function PathArrow({ start, end, color = "#FFEB3B" }) {
   const meshRef = useRef();
-  
+
   const direction = useMemo(() => new THREE.Vector3().subVectors(end, start).normalize(), [start, end]);
   const quaternion = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction), [start, end]);
 
   useFrame(({ clock }) => {
     if (meshRef.current) {
       // Medium speed constant flow (loops 0 to 1)
-      const t = (clock.getElapsedTime() * 1.2) % 1; 
+      const t = (clock.getElapsedTime() * 1.2) % 1;
       meshRef.current.position.lerpVectors(start, end, t);
     }
   });
@@ -342,8 +359,11 @@ function PathArrow({ start, end, color = "#FFEB3B" }) {
 function MainTower({ activeKeys }) {
   return (
     <group>
-      {/* Structural corner + mid pillars */}
-      {[[-22, -12], [22, -12], [-22, 12], [22, 12], [-22, 0], [22, 0], [0, -12], [0, 12]].map(
+      {/* Structural 8-pillar grid */}
+      {[
+        [-25, -15], [25, -15], [-25, 15], [25, 15],
+        [-25, 0], [25, 0], [0, -15], [0, 15]
+      ].map(
         ([px, pz], i) =>
           Array.from({ length: NUM_FLOORS_MT }).map((_, f) => (
             <Pillar
@@ -361,29 +381,22 @@ function MainTower({ activeKeys }) {
         return (
           <group key={f}>
             <FloorSlab
-              position={[18, y, 0]}
-              size={[14, 0.3, 24]}
+              position={[17, y, 0]}
+              size={[16, 0.3, 27.5]}
               color="#00E5FF"
               isActive={activeKeys.has(`MT-${f}-EastHall`)}
             />
             <FloorSlab
               position={[0, y, 0]}
-              size={[10, 0.3, 24]}
+              size={[10, 0.3, 27.5]}
               color="#651FFF"
               isActive={activeKeys.has(`MT-${f}-Center`)}
             />
             <FloorSlab
-              position={[-18, y, 0]}
-              size={[14, 0.3, 24]}
+              position={[-17, y, 0]}
+              size={[16, 0.3, 27.5]}
               color="#00E5FF"
               isActive={activeKeys.has(`MT-${f}-WestHall`)}
-            />
-            {/* Back corridor strip — aligned to edge for ER bridge */}
-            <FloorSlab
-              position={[0, y, -11.5]}
-              size={[44, 0.3, 7]}
-              color="#1a1a3e"
-              isActive={false}
             />
             <Text
               position={[0, y + 0.5, -13]}
@@ -413,7 +426,7 @@ function MainTower({ activeKeys }) {
 function ERWing({ activeKeys }) {
   return (
     <group position={[0, 0, -40]}>
-      {[[-12, -8], [12, -8], [-12, 8], [12, 8]].map(([px, pz], i) =>
+      {[[-14, -10], [14, -10], [-14, 10], [14, 10]].map(([px, pz], i) =>
         Array.from({ length: NUM_FLOORS_ER }).map((_, f) => (
           <Pillar
             key={`${i}-${f}`}
@@ -458,7 +471,7 @@ function ERWing({ activeKeys }) {
 function ICUWing({ activeKeys }) {
   return (
     <group position={[50, 0, 0]}>
-      {[[-8, -6], [8, -6], [-8, 6], [8, 6]].map(([px, pz], i) =>
+      {[[-10, -8], [10, -8], [-10, 8], [10, 8]].map(([px, pz], i) =>
         Array.from({ length: NUM_FLOORS_ICU + 1 }).map((_, f) => (
           <Pillar
             key={`${i}-${f}`}
@@ -502,7 +515,7 @@ function ICUWing({ activeKeys }) {
 function OPDWing({ activeKeys }) {
   return (
     <group position={[-45, 0, 0]}>
-      {[[-7, -5], [7, -5], [-7, 5], [7, 5]].map(([px, pz], i) =>
+      {[[-9, -7], [9, -7], [-9, 7], [9, 7]].map(([px, pz], i) =>
         Array.from({ length: NUM_FLOORS_OPD }).map((_, f) => (
           <Pillar
             key={`${i}-${f}`}
@@ -605,7 +618,7 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
     if (!recentIncident || !highlightActive) return null;
     const raw = recentIncident.location.zone?.replace(/\s+/g, '');
     const key = `${recentIncident.location.floor}-${raw}`;
-    const c   = zoneCoordinates3D[key] || zoneCoordinates3D[raw] || zoneCoordinates3D[recentIncident.location.nodeId];
+    const c = zoneCoordinates3D[key] || zoneCoordinates3D[raw] || zoneCoordinates3D[recentIncident.location.nodeId];
     return c ? [c[0], c[1] + 1.2, c[2]] : null;
   }, [recentIncident, highlightActive]);
 
@@ -644,12 +657,12 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
       </Text>
 
       {/* ── Roof helipad ───────────────────────────────────────────────── */}
-      <mesh position={[0, FH * NUM_FLOORS_MT + 0.5, -15]}>
+      <mesh position={[0, FH * NUM_FLOORS_MT + 0.5, 0]}>
         <cylinderGeometry args={[5, 5, 0.3, 32]} />
         <meshBasicMaterial color="#FFEA00" transparent opacity={0.5} />
       </mesh>
       <Text
-        position={[0, FH * NUM_FLOORS_MT + 1.2, -15]}
+        position={[0, FH * NUM_FLOORS_MT + 1.2, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         fontSize={1.5}
         color="#FFEA00"
@@ -659,36 +672,36 @@ export function BuildingModel({ activeIncidents = [], evacuationRoute = [], rece
 
       {/* ── Building wings ─────────────────────────────────────────────── */}
       <MainTower activeKeys={activeKeys} />
-      <ERWing    activeKeys={activeKeys} />
-      <ICUWing   activeKeys={activeKeys} />
-      <OPDWing   activeKeys={activeKeys} />
+      <ERWing activeKeys={activeKeys} />
+      <ICUWing activeKeys={activeKeys} />
+      <OPDWing activeKeys={activeKeys} />
 
       {/* ── Staircase shafts (Main Tower) ──────────────────────────────── */}
-      {/* Fire-rated (eastern & western fire stairs) */}
-      <StaircaseShaft x={22}  z={10}  floors={NUM_FLOORS_MT} color="#FF3D00" isEmergency={true} />
-      <StaircaseShaft x={-22} z={10}  floors={NUM_FLOORS_MT} color="#FF3D00" isEmergency={true} />
-      {/* Normal stairs */}
-      <StaircaseShaft x={22}  z={-10} floors={NUM_FLOORS_MT} color="#00E5FF" isEmergency={false} />
-      <StaircaseShaft x={-22} z={-10} floors={NUM_FLOORS_MT} color="#00E5FF" isEmergency={false} />
+      {/* Fire-rated (C & D - inner core) */}
+      <StaircaseShaft x={8} z={-7.5} floors={NUM_FLOORS_MT} color="#FF3D00" isEmergency={true} />
+      <StaircaseShaft x={-8} z={-7.5} floors={NUM_FLOORS_MT} color="#FF3D00" isEmergency={true} />
+      {/* Normal stairs (A & B - back row) */}
+      <StaircaseShaft x={20} z={-14.5} floors={NUM_FLOORS_MT} color="#00E5FF" isEmergency={false} />
+      <StaircaseShaft x={-20} z={-14.5} floors={NUM_FLOORS_MT} color="#00E5FF" isEmergency={false} />
 
       {/* ── Elevator shafts ─────────────────────────────────────────────── */}
-      <ElevatorShaft x={10}  z={-12} floors={NUM_FLOORS_MT} color="#00B0FF" />
-      <ElevatorShaft x={-10} z={-12} floors={NUM_FLOORS_MT} color="#00B0FF" />
+      <ElevatorShaft x={10} z={-14.5} floors={NUM_FLOORS_MT} color="#00B0FF" />
+      <ElevatorShaft x={-10} z={-14.5} floors={NUM_FLOORS_MT} color="#00B0FF" />
 
       {/* ── External fire escapes ──────────────────────────────────────── */}
-      {/* Positioned at corners to avoid bridge intersections */}
-      <FireEscapeColumn x={26}  z={8}  floors={NUM_FLOORS_MT} />
-      <FireEscapeColumn x={-26} z={8}  floors={NUM_FLOORS_MT} />
+      {/* Positioned at centered east/west outer edges */}
+      <FireEscapeColumn x={25.8} z={0} floors={NUM_FLOORS_MT} />
+      <FireEscapeColumn x={-25.8} z={0} floors={NUM_FLOORS_MT} />
 
       {/* ── Skybridges ─────────────────────────────────────────────────── */}
-      {/* MT ↔ ICU (aligned to edges) */}
-      <Skybridge start={[25, FH * 1, 0]} end={[40, FH * 1, 0]} color="#00FF94" />
-      <Skybridge start={[25, FH * 2, 0]} end={[40, FH * 2, 0]} color="#00FF94" />
-      <Skybridge start={[25, FH * 3, 0]} end={[40, FH * 3, 0]} color="#00FF94" />
-      {/* MT ↔ OPD (aligned to edges) */}
-      <Skybridge start={[-25, FH * 1, 0]} end={[-36, FH * 1, 0]} color="#AA00FF" />
-      {/* MT ↔ ER (aligned to edges) */}
-      <Skybridge start={[0, FH * 1, -15]} end={[0, FH * 1, -30]} color="#FF6600" />
+      {/* MT ↔ ICU (extended to meet new edge) */}
+      <Skybridge start={[25, FH * 1, 0]} end={[41, FH * 1, 0]} color="#00FF94" />
+      <Skybridge start={[25, FH * 2, 0]} end={[41, FH * 2, 0]} color="#00FF94" />
+      <Skybridge start={[25, FH * 3, 0]} end={[41, FH * 3, 0]} color="#00FF94" />
+      {/* MT ↔ OPD (extended to meet new edge) */}
+      <Skybridge start={[-25, FH * 1, 0]} end={[-37, FH * 1, 0]} color="#AA00FF" />
+      {/* MT ↔ ER (extended to meet new edge) */}
+      <Skybridge start={[0, FH * 1, -15]} end={[0, FH * 1, -31]} color="#FF6600" />
 
       {/* ── Router dots (derived from graph) ───────────────────────────── */}
       {Object.entries(zoneCoordinates3D)
