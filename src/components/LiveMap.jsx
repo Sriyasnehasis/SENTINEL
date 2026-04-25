@@ -133,25 +133,17 @@ export default function LiveMap({ userNode = null, isEmergency = false, onNodeSe
     } 
     // CASE B: Standard Incident Tracking
     else if (startingNode && zoneCoordinates3D[startingNode]) {
->>>>>>> origin/main
       let calculatedPath = [];
       ASSEMBLY_GOALS.forEach(goal => {
-        const path = dijkstra(buildingGraph, pathStartNode, goal, blocked, hazardMap);
+        const path = dijkstra(buildingGraph, startingNode, goal, blocked, hazardMap);
         if (path.length > 0 && (calculatedPath.length === 0 || path.length < calculatedPath.length)) {
           calculatedPath = path;
         }
       });
-<<<<<<< HEAD
-      return calculatedPath;
-    }
-    return [];
-  }, [isEmergency, pathStartNode, incidents, userNode]);
-=======
       setBestPath(calculatedPath);
       setMultiPaths([]);
     }
   }, [incidents, occupants, startingNode]);
->>>>>>> origin/main
 
   // 3. Focus handling
   useEffect(() => {
