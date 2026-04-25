@@ -4,12 +4,10 @@ import { collection, addDoc, serverTimestamp, doc, setDoc } from "firebase/fires
 import { Terminal, Loader2 } from "lucide-react";
 
 const DEMO_SCRIPT = [
-  { delay: 0,     label: "🔥 FIRE in MT Floor 4 East Hall",         event: { event_type: "FIRE",    location: { floor: "MT-4",  zone: "EastHall", room: "412",     nodeId: "MT-4-EastHall"  }, confidence: 0.95, source_type: "IOT_SENSOR",       status: "ACTIVE" } },
-  { delay: 6000,  label: "💨 SMOKE in MT Floor 4 West Hall",        event: { event_type: "SMOKE",   location: { floor: "MT-4",  zone: "WestHall", room: "408",     nodeId: "MT-4-WestHall"  }, confidence: 0.88, source_type: "IOT_SENSOR",       status: "ACTIVE" } },
-  { delay: 12000, label: "🆘 Patient TRAPPED in ICU Floor 2",        event: { event_type: "TRAPPED", location: { floor: "ICU-2", zone: "Central",  room: "ICU-201", nodeId: "ICU-2-Central"  }, confidence: 0.80, source_type: "VOICE_DIALOGFLOW", status: "ACTIVE" } },
-  { delay: 20000, label: "🏥 MEDICAL emergency in MT Floor 3 Ward A", event: { event_type: "MEDICAL",  location: { floor: "MT-3",  zone: "WardA",    room: "301",     nodeId: "MT-3-WardA"     }, confidence: 0.75, source_type: "STAFF_APP",       status: "ACTIVE" } },
-  { delay: 30000, label: "😱 PANIC in MT Floor 2 East Hall",         event: { event_type: "PANIC",   location: { floor: "MT-2",  zone: "EastHall", room: "212",     nodeId: "MT-2-EastHall"  }, confidence: 0.70, source_type: "VOICE_DIALOGFLOW", status: "ACTIVE" } },
-  { delay: 40000, label: "🔥 Secondary FIRE in ICU Floor 3 Neuro",   event: { event_type: "FIRE",    location: { floor: "ICU-3", zone: "Neuro",    room: "ICU-301", nodeId: "ICU-3-Neuro"    }, confidence: 0.82, source_type: "IOT_SENSOR",       status: "ACTIVE" } },
+  { delay: 0,     label: "💨 SMOKE in MT Stairwell A - Floor 1",    event: { event_type: "SMOKE",   location: { floor: "MT-1",  zone: "Stairwell A", nodeId: "Stair-A-1" }, confidence: 0.95, source_type: "IOT_SENSOR", status: "ACTIVE" } },
+  { delay: 8000,  label: "🔥 FIRE in MT Floor 3 East Hall",         event: { event_type: "FIRE",    location: { floor: "MT-3",  zone: "East Hall",   nodeId: "MT-3-EastHall" }, confidence: 0.98, source_type: "IOT_SENSOR", status: "ACTIVE" } },
+  { delay: 16000, label: "🔥 FIRE in MT Stairwell B - Floor 3",    event: { event_type: "FIRE",    location: { floor: "MT-3",  zone: "Stairwell B", nodeId: "Stair-B-3" }, confidence: 0.92, source_type: "IOT_SENSOR", status: "ACTIVE" } },
+  { delay: 24000, label: "🔥 FIRE in ICU-MT Skybridge Floor 3",     event: { event_type: "FIRE",    location: { floor: "Shared", zone: "Skybridge",  nodeId: "Bridge-MT-ICU-3" }, confidence: 0.95, source_type: "IOT_SENSOR", status: "ACTIVE" } },
 ];
 
 function generateUUID() {
@@ -64,6 +62,21 @@ export default function DemoButton() {
     setProgress(0);
     const startTime = Date.now();
     try {
+      // Step 0: Initialize Demo Session with Occupants in Firestore
+      const occupants = [
+        { id: 'P1', startNode: 'MT-4-WestHall',    label: 'Occupant P1 (Staff)',   color: '#00E5FF' },
+        { id: 'P2', startNode: 'ER-1-SurgicalHub', label: 'Occupant P2 (Visitor)', color: '#FF0055' },
+        { id: 'P3', startNode: 'ICU-3-Central',    label: 'Occupant P3 (Patient)', color: '#FFEB3B' }
+      ];
+
+      await setDoc(doc(db, "sessions", "current"), {
+        occupants: occupants,
+        status: "DEMO_ACTIVE",
+        last_updated: serverTimestamp(),
+        incident_count: 0
+      });
+
+      // Step 1: Execute Incident Script
       for (let i = 0; i < DEMO_SCRIPT.length; i++) {
         const { delay, event } = DEMO_SCRIPT[i];
         const elapsed = Date.now() - startTime;

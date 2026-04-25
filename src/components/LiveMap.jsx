@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Canvas } from '@react-three/fiber';
 import { Stars, CameraControls, Environment, Text, Sphere, Html } from '@react-three/drei';
 import { db } from "../firebase";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, doc } from "firebase/firestore";
 import { dijkstra, getBlockedNodes } from "../utils/dijkstra";
 import { buildingGraph, zoneCoordinates3D, hospitalData } from "../utils/buildingGraph";
 import { BuildingModel } from "./Building3D";
@@ -28,15 +28,28 @@ function UserHighlight({ position }) {
 
 export default function LiveMap({ userNode = null, isEmergency = false, onNodeSelect = null }) {
   const [incidents, setIncidents] = useState([]);
+  const [occupants, setOccupants] = useState([]);
+  const [multiPaths, setMultiPaths] = useState([]);
+  const [bestPath, setBestPath] = useState([]);
+  const [startingNode, setStartingNode] = useState(userNode || DEFAULT_START);
   const [recentIncident, setRecentIncident] = useState(null);
   const [highlightActive, setHighlightActive] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   
   const lastIncidentCount = useRef(0);
+  const lastFocusedId = useRef(null);
   const controlsRef = useRef();
 
-  // 1. Sync active & investigating incidents
+  // Configure smoother camera defaults on mount
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.smoothTime = 0.8;         // Higher for more cinematic feel (default 0.25)
+      controlsRef.current.draggingSmoothTime = 0.4; // Smoother manual movement
+    }
+  }, []);
+
+  // 1. Sync active incidents from Firestore
   useEffect(() => {
     const q = query(collection(db, "incidents"), where("status", "in", ["ACTIVE", "INVESTIGATING"]));
     const unsubIncidents = onSnapshot(q, (snap) => {
@@ -51,18 +64,31 @@ export default function LiveMap({ userNode = null, isEmergency = false, onNodeSe
 
       if (activeData.length > lastIncidentCount.current && sortedData.length > 0) {
         const newest = sortedData[0];
-        setRecentIncident(newest);
-        setHighlightActive(true);
+        
+        // Prevent redundant camera jumps if snapshot fires multiple times for same incident
+        if (newest.id !== lastFocusedId.current) {
+          lastFocusedId.current = newest.id;
+          setRecentIncident(newest);
+          setHighlightActive(true);
 
-        if (!userNode && controlsRef.current && newest.location?.nodeId) {
-          const coords = zoneCoordinates3D[newest.location.nodeId];
-          if (coords) {
-            controlsRef.current.setLookAt(
-              coords[0] + 25, coords[1] + 20, coords[2] + 35, 
-              coords[0], coords[1], coords[2],               
-              true                                            
-            );
-            setTimeout(() => setHighlightActive(false), 4500);
+          // Shift camera focus to the new incident with optimized transition
+          if (controlsRef.current && newest.location?.nodeId) {
+            const coords = zoneCoordinates3D[newest.location.nodeId];
+            if (coords) {
+              controlsRef.current.setLookAt(
+                coords[0] + 18, coords[1] + 15, coords[2] + 25, // Slightly closer for less "jump"
+                coords[0], coords[1], coords[2],               // Target
+                true                                            // Smooth transition
+              );
+
+              // Revert focus after 5 seconds
+              setTimeout(() => {
+                setHighlightActive(false);
+                if (controlsRef.current) {
+                  controlsRef.current.setLookAt(0, 60, 100, 0, 0, 0, true);
+                }
+              }, 5000);
+            }
           }
         }
       }
@@ -72,16 +98,42 @@ export default function LiveMap({ userNode = null, isEmergency = false, onNodeSe
     return () => unsubIncidents();
   }, [userNode]);
 
-  // 2. Pathfinding
-  const pathStartNode = useMemo(() => {
-    if (userNode) return userNode;
-    return incidents.length > 0 && incidents[0].location?.nodeId ? incidents[0].location.nodeId : DEFAULT_START;
-  }, [userNode, incidents]);
+  // 2. Sync session metadata (Occupants)
+  useEffect(() => {
+    return onSnapshot(doc(db, "sessions", "current"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.occupants) {
+          setOccupants(data.occupants);
+        }
+      }
+    });
+  }, []);
 
-  const bestPath = useMemo(() => {
-    const activeIsEmergency = userNode ? isEmergency : incidents.length > 0;
-    if (activeIsEmergency && pathStartNode && buildingGraph) {
-      const { blocked, hazardMap } = getBlockedNodes(incidents);
+  // 3. Calculate paths for all occupants (or fallback to single incident)
+  useEffect(() => {
+    if (!buildingGraph) return;
+    
+    const { blocked, hazardMap } = getBlockedNodes(incidents);
+    
+    // CASE A: Multi-Occupant Demo Mode
+    if (occupants.length > 0) {
+      const calculatedPaths = occupants.map(occ => {
+        let pathForOcc = [];
+        ASSEMBLY_GOALS.forEach(goal => {
+          const path = dijkstra(buildingGraph, occ.startNode, goal, blocked, hazardMap);
+          if (path.length > 0 && (pathForOcc.length === 0 || path.length < pathForOcc.length)) {
+            pathForOcc = path;
+          }
+        });
+        return { id: occ.id, path: pathForOcc, color: occ.color, label: occ.label };
+      });
+      setMultiPaths(calculatedPaths);
+      setBestPath([]); // Clear legacy single path
+    } 
+    // CASE B: Standard Incident Tracking
+    else if (startingNode && zoneCoordinates3D[startingNode]) {
+>>>>>>> origin/main
       let calculatedPath = [];
       ASSEMBLY_GOALS.forEach(goal => {
         const path = dijkstra(buildingGraph, pathStartNode, goal, blocked, hazardMap);
@@ -89,10 +141,17 @@ export default function LiveMap({ userNode = null, isEmergency = false, onNodeSe
           calculatedPath = path;
         }
       });
+<<<<<<< HEAD
       return calculatedPath;
     }
     return [];
   }, [isEmergency, pathStartNode, incidents, userNode]);
+=======
+      setBestPath(calculatedPath);
+      setMultiPaths([]);
+    }
+  }, [incidents, occupants, startingNode]);
+>>>>>>> origin/main
 
   // 3. Focus handling
   useEffect(() => {
@@ -128,6 +187,7 @@ export default function LiveMap({ userNode = null, isEmergency = false, onNodeSe
         <BuildingModel 
           activeIncidents={incidents} 
           evacuationRoute={bestPath} 
+          multiPaths={multiPaths}
           recentIncident={recentIncident}
           highlightActive={highlightActive}
           selectedNode={selectedNode}
