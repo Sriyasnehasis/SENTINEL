@@ -104,9 +104,9 @@ function UserMarker({ nodeId }) {
 
 const FH = 5;             // Floor height (metres in scene units)
 const NUM_FLOORS_MT = 6; // Main Tower: floors 0–5 + roof slab
-const NUM_FLOORS_ER = 2; // ER Wing: floors 0–1
-const NUM_FLOORS_ICU = 4; // ICU Wing: floors 1–4
-const NUM_FLOORS_OPD = 2; // OPD Wing: floors 0–1
+const NUM_FLOORS_ER = 3; // ER Wing: floors 0–2
+const NUM_FLOORS_ICU = 5; // ICU Wing: floors 0–4
+const NUM_FLOORS_OPD = 3; // OPD Wing: floors 0–2
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 
@@ -525,7 +525,7 @@ function ERWing({ activeKeys }) {
             size={[28, 0.4, 20]}
             color="#FF6600"
             opacity={0.2}
-            isActive={activeKeys.has(`ER-${f}-Triage`)}
+            isActive={activeKeys.has(`ER-${f}-Admissions`) || activeKeys.has(`ER-${f}-SurgicalHub`) || activeKeys.has(`ER-${f}-Waiting`)}
           />
           <Text
             position={[0, FH * f + 0.5, -9]}
@@ -563,13 +563,13 @@ function ICUWing({ activeKeys }) {
           />
         ))
       )}
-      {Array.from({ length: NUM_FLOORS_ICU }, (_, i) => i + 1).map(f => (
+      {Array.from({ length: NUM_FLOORS_ICU }, (_, f) => f).map(f => (
         <group key={f}>
           <FloorSlab
             position={[0, FH * f, 0]}
             size={[20, 0.3, 16]}
             color="#00FF94"
-            isActive={activeKeys.has(`ICU-${f}-Central`)}
+            isActive={activeKeys.has(`ICU-${f}-Central`) || activeKeys.has(`ICU-${f}-Recovery`)}
           />
           <Text
             position={[0, FH * f + 0.5, -7]}
@@ -613,7 +613,7 @@ function OPDWing({ activeKeys }) {
             position={[0, FH * f, 0]}
             size={[18, 0.3, 14]}
             color="#AA00FF"
-            isActive={activeKeys.has(`OPD-${f}-Reception`)}
+            isActive={activeKeys.has(`OPD-${f}-Reception`) || activeKeys.has(`OPD-${f}-Pharmacy`) || activeKeys.has(`OPD-${f}-Clinics`) || activeKeys.has(`OPD-${f}-Corridor`)}
           />
           <Text
             position={[0, FH * f + 0.5, -6]}

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { UserPlus, Cpu, AlertCircle } from "lucide-react";
+import { db } from "../firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -20,25 +22,42 @@ export default function Signup() {
     ICU: { name: "ICU Wing",   floors: ["0", "1", "2", "3"],   zones: ["Central", "Recovery"] },
     OPD: { name: "OPD Wing",   floors: ["0", "1", "2"],        zones: ["Pharmacy", "Clinics"] },
   };
-  const { signup } = useAuth();
+  const { signup, login } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+    
+    if (password.length < 6) {
+      setError("SECURITY_ERROR: PASSWORD_TOO_WEAK (MIN 6 CHARS)");
+      return;
+    }
+
     try {
-      setError("");
       setLoading(true);
-      const userCredential = await signup(email, password);
+      let userCredential;
+
+      try {
+        userCredential = await signup(email, password);
+      } catch (authErr) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          try {
+            userCredential = await login(email, password);
+          } catch (loginErr) {
+            setError("AUTH_ERROR: INVALID_KEY_FOR_EXISTING_ID");
+            setLoading(false);
+            return;
+          }
+        } else {
+          throw authErr;
+        }
+      }
       
-      // If guest role is selected in URL, initialize guest profile
       const params = new URLSearchParams(window.location.search);
       const role = params.get('role');
       
-      if (role === 'guest') {
-        const { db } = await import("../firebase");
-        const { setDoc, doc, serverTimestamp } = await import("firebase/firestore");
-        
-        // Construct standard Node ID: e.g. MT-0-Center
+      if (role === 'guest' || !role) {
         const nodeId = `${wing}-${floor}-${room.replace(/\s+/g, '')}`;
         
         await setDoc(doc(db, "guests", userCredential.user.uid), {
@@ -50,14 +69,19 @@ export default function Signup() {
           nodeId: nodeId,
           language: language,
           mobility_assistance_required: false,
-          created_at: serverTimestamp()
-        });
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp()
+        }, { merge: true });
       }
       
       navigate("/");
     } catch (err) {
-      setError("REGISTRATION_ERROR: UPLINK_FAILED");
       console.error(err);
+      if (err.code === 'auth/invalid-email') {
+        setError("REGISTRATION_ERROR: INVALID_ID_FORMAT");
+      } else {
+        setError("REGISTRATION_ERROR: UPLINK_FAILED");
+      }
     }
     setLoading(false);
   }

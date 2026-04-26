@@ -5,7 +5,8 @@ import {
   signInWithEmailAndPassword, 
   signOut 
 } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { onSnapshot, doc } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -37,21 +38,19 @@ export function AuthProvider({ children }) {
       
       if (currentUser && !isAd) {
         // Fetch guest profile with real-time listener
-        try {
-          const { db } = await import("../firebase");
-          const { onSnapshot, doc } = await import("firebase/firestore");
-          const docRef = doc(db, "guests", currentUser.uid);
-          
-          if (unsubscribeProfile) unsubscribeProfile();
-          
-          unsubscribeProfile = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-              setGuestProfile(docSnap.data());
-            }
-          });
-        } catch (err) {
-          console.warn("Error setting up guest profile listener:", err);
-        }
+        const docRef = doc(db, "guests", currentUser.uid);
+        
+        if (unsubscribeProfile) unsubscribeProfile();
+        
+        unsubscribeProfile = onSnapshot(docRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setGuestProfile(docSnap.data());
+          } else {
+            setGuestProfile(false); // Explicitly mark as missing
+          }
+        }, (err) => {
+          console.warn("Error in guest profile listener:", err);
+        });
       } else {
         setGuestProfile(null);
         if (unsubscribeProfile) {
@@ -59,7 +58,6 @@ export function AuthProvider({ children }) {
           unsubscribeProfile = null;
         }
       }
-      
       setLoading(false);
     });
 

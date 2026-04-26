@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
   doc, onSnapshot, getDoc, updateDoc,
@@ -57,6 +58,22 @@ export default function GuestDashboard() {
   const room = guestProfile?.room || "Lobby";
   const floor = guestProfile?.floor || "0";
   const userNode = guestProfile?.nodeId || "MT-0-Center";
+  const navigate = useNavigate();
+
+  // Redirect if profile is missing (with small grace period for new registrations)
+  useEffect(() => {
+    let timeout;
+    if (guestProfile === false) {
+      console.log("PROFILING_REQUIRED: Profile missing. Verifying link...");
+      timeout = setTimeout(() => {
+        console.log("PROFILING_REQUIRED: Terminating session and redirecting...");
+        logout().then(() => {
+          navigate("/signup?role=guest");
+        });
+      }, 2000); // 2s grace period for Firestore propagation
+    }
+    return () => clearTimeout(timeout);
+  }, [guestProfile, navigate, logout]);
 
   // Listen for Rescue Request Status
   useEffect(() => {
