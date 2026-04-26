@@ -13,13 +13,95 @@
  *  - Hazard beacons, evacuation path, glowing router dots
  */
 
-import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Line, Text, Sphere, Cylinder } from '@react-three/drei';
-import * as THREE from 'three';
-import { zoneCoordinates3D } from '../utils/buildingGraph';
+import React, { useMemo, useRef } from "react";
+import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
+import { Line, Sphere, Cylinder, Text, Html } from "@react-three/drei";
+import { zoneCoordinates3D } from "../utils/buildingGraph";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Components ───────────────────────────────────────────────────────────────
+
+function UserMarker({ nodeId }) {
+  const meshRef = useRef();
+  const ringRef = useRef();
+  const lightRef = useRef();
+  const coords = zoneCoordinates3D[nodeId];
+
+  useFrame((state) => {
+    if (!meshRef.current || !ringRef.current) return;
+    const t = state.clock.getElapsedTime();
+    
+    // Bounce main pin
+    meshRef.current.position.y = coords[1] + 2.5 + Math.sin(t * 3) * 0.3;
+    meshRef.current.rotation.y = t * 2;
+    
+    // Scale pulsing ring
+    const s = 1 + Math.sin(t * 4) * 0.8;
+    ringRef.current.scale.set(s, s, s);
+    ringRef.current.material.opacity = 1 - (s - 0.5) / 1.5;
+
+    // Pulse light intensity
+    if (lightRef.current) {
+      lightRef.current.intensity = 2 + Math.sin(t * 5) * 1.5;
+    }
+  });
+
+  if (!coords) return null;
+
+  const markerColor = "#00FFA3"; // Vibrant Neon Mint
+
+  return (
+    <group position={[coords[0], coords[1], coords[2]]}>
+      {/* Vertical Beacon Beam */}
+      <mesh position={[0, 5, 0]}>
+        <cylinderGeometry args={[0.02, 0.2, 10, 8]} />
+        <meshBasicMaterial color={markerColor} transparent opacity={0.3} />
+      </mesh>
+
+      {/* The floating Diamond/Pin */}
+      <mesh ref={meshRef}>
+        <octahedronGeometry args={[0.6, 0]} />
+        <meshStandardMaterial 
+          color={markerColor} 
+          emissive={markerColor} 
+          emissiveIntensity={3} 
+          metalness={1} 
+          roughness={0} 
+        />
+      </mesh>
+
+      {/* Local PointLight for glow */}
+      <pointLight ref={lightRef} position={[0, 2, 0]} color={markerColor} distance={10} decay={2} />
+
+      {/* Pulsing Floor Ring */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
+        <ringGeometry args={[1.2, 1.8, 32]} />
+        <meshBasicMaterial color={markerColor} transparent opacity={0.5} />
+      </mesh>
+
+      {/* "YOU ARE HERE" Label */}
+      <Html position={[0, 4.5, 0]} center distanceFactor={15}>
+        <div style={{ 
+          background: markerColor, 
+          color: 'black', 
+          padding: '4px 10px', 
+          borderRadius: '2px',
+          fontSize: '11px',
+          fontWeight: 900,
+          fontFamily: 'JetBrains Mono',
+          whiteSpace: 'nowrap',
+          border: '2px solid white',
+          boxShadow: `0 0 20px ${markerColor}`,
+          pointerEvents: 'none',
+          transform: 'translateY(-20px)'
+        }}>
+          YOU_ARE_HERE
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 const FH = 5;             // Floor height (metres in scene units)
 const NUM_FLOORS_MT = 6; // Main Tower: floors 0–5 + roof slab
 const NUM_FLOORS_ER = 2; // ER Wing: floors 0–1
@@ -572,7 +654,8 @@ export function BuildingModel({
   evacuationRoute = [],
   multiPaths = [],
   recentIncident = null,
-  highlightActive = false
+  highlightActive = false,
+  userLocation = null
 }) {
   // Build a Set of "active keys" derived from incident location data.
   // Keys match the pattern used in FloorSlab isActive checks: "<wing>-<floor>-<zone>".
@@ -763,6 +846,9 @@ export function BuildingModel({
           ))}
         </group>
       )}
+
+      {/* ── User Location Marker (You Are Here) ────────────────────────── */}
+      {userLocation && <UserMarker nodeId={userLocation} />}
 
       {/* ── Hazard beacons ─────────────────────────────────────────────── */}
       {hazardPositions.map((h, i) => (

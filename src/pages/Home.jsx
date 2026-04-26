@@ -12,6 +12,9 @@ import LiveMap from "../components/LiveMap";
 import DialogflowWidget from "../components/DialogflowWidget";
 import ZoneClearButton from "../components/ZoneClearButton";
 import DemoButton from "../components/DemoButton";
+import GuestDashboard from "../components/GuestDashboard";
+import RescueRequestPanel from "../components/RescueRequestPanel";
+import Navbar from "../components/Navbar";
 
 export default function Home() {
   const { user, isAdmin } = useAuth();
@@ -45,24 +48,12 @@ export default function Home() {
   const sysDisplay = statusConfig[systemStatus];
 
   if (!isAdmin) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-void)", padding: "2rem" }}>
-        <div className="glass-card animate-in" style={{ padding: "4rem", textAlign: "center", border: "1px solid var(--primary-glow)", maxWidth: "600px" }}>
-          <div className="hud-label" style={{ marginBottom: "2rem", borderLeftColor: "var(--primary)" }}>S_NODE_USER_ACCESS</div>
-          <h1 style={{ fontSize: "2.5rem", fontWeight: 800, color: "var(--primary)", marginBottom: "1rem", letterSpacing: "0.1em" }}>USER_TERMINAL</h1>
-          <p style={{ color: "var(--text-muted)", fontFamily: "JetBrains Mono", fontSize: "0.9rem", lineHeight: 1.6 }}>
-            Welcome to the Sentinel interface. You are currently logged in with limited privileges. 
-            Full command authorization is restricted to administrative personnel.
-          </p>
-          <div style={{ marginTop: "3rem", height: "1px", background: "linear-gradient(90deg, transparent, var(--primary), transparent)", opacity: 0.3 }} />
-          <div style={{ marginTop: "1rem", fontSize: "0.6rem", color: "var(--primary)", fontFamily: "JetBrains Mono" }}>THIS IS USER WINDOW // ACCESS_LEVEL: 0</div>
-        </div>
-      </div>
-    );
+    return <GuestDashboard />;
   }
 
   return (
     <div className="container animate-in" style={{ padding: 0 }}>
+      <Navbar />
       {/* Background HUD Overlay */}
       <div style={{
         position: 'fixed',
@@ -159,7 +150,7 @@ export default function Home() {
             }}>
               {sysDisplay.label} // {lastUpdated?.toLocaleTimeString()}
             </div>
-            <LiveMap />
+            <LiveMap isAdmin={true} />
           </div>
         </div>
 
@@ -167,11 +158,15 @@ export default function Home() {
         <div style={{ gridColumn: 'span 3', height: 'calc(100vh - 3rem)' }}>
           <div className="glass-card" style={{ height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
             <div className="hud-label" style={{ marginBottom: '1rem', fontSize: '0.5rem' }}>INCIDENT_STREAM_V3.0</div>
+            
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              <IncidentTable 
-                focusedIncidentId={focusedIncident?.id} 
-                onFocus={(inc) => setFocusedIncident(inc)} 
-              />
+              <RescueRequestPanel />
+              <div style={{ marginTop: '1.5rem' }}>
+                <IncidentTable 
+                  focusedIncidentId={focusedIncident?.id} 
+                  onFocus={(inc) => setFocusedIncident(inc)} 
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -12,17 +12,22 @@ import { AlertTriangle } from "lucide-react";
 const ASSEMBLY_GOALS = ["EXT-Assembly-Front", "EXT-Assembly-Rear"];
 const DEFAULT_START = "MT-G-Lobby";
 
-export default function LiveMap() {
+export default function LiveMap({ userNode = DEFAULT_START, isEmergency = false, isAdmin = false }) {
   const [incidents, setIncidents] = useState([]);
   const [occupants, setOccupants] = useState([]);
   const [multiPaths, setMultiPaths] = useState([]);
   const [bestPath, setBestPath] = useState([]);
-  const [startingNode, setStartingNode] = useState(DEFAULT_START);
+  const [startingNode, setStartingNode] = useState(userNode);
   const [recentIncident, setRecentIncident] = useState(null);
   const [highlightActive, setHighlightActive] = useState(false);
   const lastIncidentCount = useRef(0);
   const lastFocusedId = useRef(null);
   const controlsRef = useRef();
+
+  // Sync starting node with prop
+  useEffect(() => {
+    if (userNode) setStartingNode(userNode);
+  }, [userNode]);
 
   // Configure smoother camera defaults on mount
   useEffect(() => {
@@ -34,7 +39,7 @@ export default function LiveMap() {
 
   // 1. Sync active incidents from Firestore
   useEffect(() => {
-    const q = query(collection(db, "incidents"), where("status", "==", "ACTIVE"));
+    const q = query(collection(db, "incidents"), where("status", "in", ["ACTIVE", "RESCUE"]));
     return onSnapshot(q, (snap) => {
       const activeData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       
@@ -81,11 +86,9 @@ export default function LiveMap() {
       
       lastIncidentCount.current = activeData.length;
 
-      // Update pathfinding starting node
-      if (activeData.length > 0 && activeData[0].location?.nodeId) {
+      // Update pathfinding starting node (Admin only fallback if no userNode)
+      if (activeData.length > 0 && activeData[0].location?.nodeId && userNode === DEFAULT_START) {
         setStartingNode(activeData[0].location.nodeId);
-      } else {
-        setStartingNode(DEFAULT_START);
       }
     });
   }, []);
@@ -105,11 +108,18 @@ export default function LiveMap() {
   // 3. Calculate paths for all occupants (or fallback to single incident)
   useEffect(() => {
     if (!buildingGraph) return;
+
+    // FEATURE: If no incidents and not in emergency mode, clear all paths
+    if (incidents.length === 0 && !isEmergency) {
+      setBestPath([]);
+      setMultiPaths([]);
+      return;
+    }
     
     const { blocked, hazardMap } = getBlockedNodes(incidents);
     
-    // CASE A: Multi-Occupant Demo Mode
-    if (occupants.length > 0) {
+    // CASE A: Multi-Occupant Demo Mode (ADMIN ONLY)
+    if (isAdmin && occupants.length > 0) {
       const calculatedPaths = occupants.map(occ => {
         let pathForOcc = [];
         ASSEMBLY_GOALS.forEach(goal => {
@@ -135,7 +145,7 @@ export default function LiveMap() {
       setBestPath(calculatedPath);
       setMultiPaths([]);
     }
-  }, [incidents, occupants, startingNode]);
+  }, [incidents, occupants, startingNode, isEmergency]);
 
   // 3. Listen for manual focus events from table
   useEffect(() => {
@@ -165,6 +175,7 @@ export default function LiveMap() {
           multiPaths={multiPaths}
           recentIncident={recentIncident}
           highlightActive={highlightActive}
+          userLocation={userNode !== DEFAULT_START ? userNode : null}
         />
       </Canvas>
 

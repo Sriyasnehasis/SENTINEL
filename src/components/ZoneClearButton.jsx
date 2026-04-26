@@ -16,7 +16,7 @@ export default function ZoneClearButton({ staffId, zone }) {
         zone_assigned: zone,
       }, { merge: true });
 
-      const q = query(collection(db, "incidents"), where("status", "==", "ACTIVE"));
+      const q = query(collection(db, "incidents"), where("status", "in", ["ACTIVE", "RESCUE"]));
       const snapshot = await getDocs(q);
       
       const updatePromises = snapshot.docs.map(incidentDoc => 
@@ -25,8 +25,26 @@ export default function ZoneClearButton({ staffId, zone }) {
           resolved_at: new Date().toISOString()
         })
       );
+
+      // Also clear pending/accepted rescue requests
+      const rq = query(collection(db, "rescue_requests"), where("status", "in", ["PENDING", "RESOLVED", "ACCEPTED"]));
+      const rSnapshot = await getDocs(rq);
+      const rUpdatePromises = rSnapshot.docs.map(rDoc => 
+        updateDoc(doc(db, "rescue_requests", rDoc.id), {
+          status: "CLEARED"
+        })
+      );
       
-      await Promise.all(updatePromises);
+      await Promise.all([...updatePromises, ...rUpdatePromises]);
+      
+      // Clear occupants and sitrep from session to reset paths
+      await updateDoc(doc(db, "sessions", "current"), {
+        occupants: [],
+        status: "NOMINAL",
+        current_sitrep: null,
+        last_updated: new Date().toISOString()
+      });
+
       console.log(`✅ Zone ${zone} marked as clear.`);
       alert(`✅ INCIDENT_LOGS_PURGED`);
     } catch (error) {

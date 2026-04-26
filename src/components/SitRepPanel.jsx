@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
+import { speakTactical } from "../utils/tts";
 
 /**
  * SENTINEL Phase 3 — Production AI SitRep Panel
@@ -113,10 +114,7 @@ export default function SitRepPanel({ focusedIncident }) {
       text = `Severity ${effectiveSitRep.severity}. ${effectiveSitRep.threat_summary}. Recommended actions: ${effectiveSitRep.recommended_actions?.join(", ")}`;
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    window.speechSynthesis.speak(utterance);
+    speakTactical(text);
   };
 
   if (loading) return (

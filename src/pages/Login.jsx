@@ -10,6 +10,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const params = new URLSearchParams(window.location.search);
+  const role = params.get('role') || 'guest';
+  const isAdm = role === 'admin';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -31,11 +34,13 @@ export default function Login() {
       <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{ display: 'inline-flex', background: 'rgba(0, 245, 255, 0.1)', padding: '1rem', borderRadius: '4px', border: '1px solid var(--primary)', marginBottom: '1.5rem' }}>
-            <ShieldCheck size={32} color="var(--primary)" />
+            <ShieldCheck size={32} color={isAdm ? 'var(--primary)' : 'var(--neon-green)'} />
           </div>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>SYSTEM ACCESS</h2>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'white', letterSpacing: '0.1em' }}>
+            {isAdm ? 'ADMIN_UPLINK' : 'GUEST_ACCESS'}
+          </h2>
           <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', letterSpacing: '0.1em' }}>
-            RESRTRICTED // AUTHORIZED_STAFF_ONLY
+            {isAdm ? 'RESTRICTED_COMMAND_NODE' : 'RESIDENT_PORTAL_STABLE'}
           </p>
         </div>
         
@@ -104,7 +109,7 @@ export default function Login() {
         </form>
         
         <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
-          NO_ACCOUNT? <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'underline' }}>REGISTER_UNIT</Link>
+          NO_ACCOUNT? <Link to={`/signup?role=${role}`} style={{ color: isAdm ? 'var(--primary)' : 'var(--neon-green)', fontWeight: '700', textDecoration: 'underline' }}>REGISTER_UNIT</Link>
         </div>
       </div>
     </div>
