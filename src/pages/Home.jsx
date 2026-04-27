@@ -70,68 +70,128 @@ export default function Home() {
 
       <div className="asymmetric-layout" style={{ minHeight: '100vh', padding: '1.5rem' }}>
         
-        {/* Left Side: Stats & SitRep */}
-        <div style={{ gridColumn: 'span 3', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingTop: '6rem' }}>
-          
-          {/* Scattered Stats */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-            {[
-              { label: "ACTV", val: stats.active, color: stats.active > 0 ? "var(--accent)" : "var(--neon-green)" },
-              { label: "EVNT", val: stats.total, color: "var(--primary)" },
-              { label: "SYNC", val: "LIVE", color: "var(--neon-green)" }
-            ].map(s => (
-              <div key={s.label} className="glass-card" style={{ padding: '1rem', minWidth: '100px', flex: '1' }}>
-                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{s.label}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 300, color: s.color, fontFamily: 'JetBrains Mono' }}>{s.val}</div>
+        {/* Left Side: Admin Tactical HUD */}
+        <div style={{ gridColumn: 'span 3', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '6rem', overflowY: 'auto', maxHeight: '100vh', paddingBottom: '3rem' }}>
+
+          {/* ─── Compact Admin Header Strip ──────────────────────── */}
+          <div style={{
+            background: 'rgba(10,14,22,0.8)',
+            border: '1px solid rgba(0,245,255,0.15)',
+            borderLeft: '3px solid var(--accent)',
+            borderRadius: '6px',
+            padding: '0.65rem 0.9rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '4px', flexShrink: 0,
+                background: 'rgba(255,0,85,0.12)', border: '1px solid rgba(255,0,85,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <Shield size={14} color="var(--accent)" />
               </div>
-            ))}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>ADMIN_OPERATOR</div>
+                <div style={{ fontSize: '0.5rem', color: 'var(--accent)', fontWeight: 700, letterSpacing: '0.12em' }}>
+                  {user?.email?.split('@')[0]?.toUpperCase() || 'ADMIN'} · LVL-5
+                </div>
+              </div>
+            </div>
+            {/* 3 inline stat pills */}
+            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+              {[
+                { label: 'ACTV', val: stats.active, color: stats.active > 0 ? 'var(--accent)' : 'var(--neon-green)' },
+                { label: 'EVNT', val: stats.total,  color: 'var(--primary)' },
+                { label: 'SEC',  val: stats.resolved, color: 'var(--neon-green)' }
+              ].map(s => (
+                <div key={s.label} style={{
+                  background: 'rgba(0,0,0,0.4)', border: `1px solid ${s.color}55`,
+                  borderTop: `2px solid ${s.color}`,
+                  borderRadius: '5px', padding: '0.4rem 0.65rem', textAlign: 'center', minWidth: '46px'
+                }}>
+                  <div style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.1em', marginBottom: '2px' }}>{s.label}</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 700, color: s.color, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Floating SitRep */}
-          <div className="glass-card" style={{ padding: '1.5rem', flex: '1' }}>
-            <div className="hud-label" style={{ marginBottom: '1rem' }}>TACTICAL_ANALYSIS</div>
-            <SitRepPanel focusedIncident={focusedIncident} />
+          {/* ─── System Health (single slim bar) ─────────────────── */}
+          <div style={{
+            padding: '0.55rem 0.9rem',
+            borderRadius: '6px',
+            background: systemStatus === 'CRITICAL' ? 'rgba(255,0,85,0.07)' : systemStatus === 'WARNING' ? 'rgba(255,159,0,0.07)' : 'rgba(0,255,159,0.04)',
+            border: `1px solid ${sysDisplay.color}33`,
+            borderLeft: `3px solid ${sysDisplay.color}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem',
+            animation: systemStatus === 'CRITICAL' ? 'pulse-red 2s infinite' : 'none'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{
+                width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                background: sysDisplay.color, boxShadow: `0 0 8px ${sysDisplay.color}`,
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }} />
+              <span style={{ fontSize: '0.72rem', fontWeight: 900, color: sysDisplay.color, letterSpacing: '0.05em' }}>
+                {sysDisplay.label}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.5rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+              {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+            </span>
           </div>
 
+          {/* ─── Tactical Analysis (SitRep) ──────────────────────── */}
+          <div style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-dim)',
+            borderRadius: '6px',
+            padding: '1rem',
+            flex: 1,
+            display: 'flex', flexDirection: 'column', gap: '0.75rem',
+            minHeight: 0
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--border-dim)' }}>
+              <Activity size={14} color="var(--primary)" />
+              <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '0.2em' }}>TACTICAL_ANALYSIS</div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <SitRepPanel focusedIncident={focusedIncident} />
+            </div>
+          </div>
+
+          {/* ─── Command Terminal ─────────────────────────────────── */}
           <div style={{ 
             background: 'var(--bg-panel)',
             padding: '1rem',
-            borderRadius: '2px',
+            borderRadius: '6px',
             border: '1px solid var(--border-dim)',
             position: 'relative',
             overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem'
           }}>
             <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               borderBottom: '1px solid var(--border-dim)',
-              paddingBottom: '0.5rem',
-              marginBottom: '0.5rem'
+              paddingBottom: '0.6rem', marginBottom: '0.85rem'
             }}>
-              <div className="hud-label" style={{ borderLeftColor: 'var(--primary)', color: 'var(--primary)' }}>AUTH_CMD_TERMINAL_v2.0</div>
-              <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>[SECURE_LINK_ACTIVE]</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--neon-green)', boxShadow: '0 0 6px var(--neon-green)' }} />
+                <span style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '0.15em' }}>AUTH_CMD_TERMINAL_v2.0</span>
+              </div>
+              <span style={{ fontSize: '0.52rem', color: 'var(--neon-green)', fontFamily: 'JetBrains Mono' }}>[SECURE_LINK_ACTIVE]</span>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', height: '50px' }}>
-              <div style={{ flex: 1 }}>
-                <DemoButton />
-              </div>
-              <div style={{ flex: 1 }}>
-                <ZoneClearButton staffId={user?.uid || "demo-staff"} zone="MT-4-EastHall" />
-              </div>
+            <div style={{ display: 'flex', gap: '0.75rem', height: '50px' }}>
+              <div style={{ flex: 1 }}><DemoButton /></div>
+              <div style={{ flex: 1 }}><ZoneClearButton staffId={user?.uid || "demo-staff"} zone="MT-4-EastHall" /></div>
             </div>
 
-            {/* Matrix-like scanline overlay */}
+            {/* Scanline overlay */}
             <div style={{ 
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
-              background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))',
+              background: 'linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06))',
               backgroundSize: '100% 4px, 3px 100%',
-              pointerEvents: 'none',
-              opacity: 0.3
+              pointerEvents: 'none', opacity: 0.25
             }} />
           </div>
         </div>

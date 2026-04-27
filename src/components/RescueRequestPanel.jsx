@@ -14,12 +14,17 @@ export default function RescueRequestPanel() {
     return () => unsub();
   }, []);
 
-  const resolveRequest = async (id) => {
+  const resolveRequest = async (id, guest_id) => {
     try {
       await updateDoc(doc(db, "rescue_requests", id), {
         status: "RESOLVED",
         resolved_at: new Date().toISOString()
       });
+      if (guest_id) {
+        await updateDoc(doc(db, "guests", guest_id), {
+          mobility_assistance_required: false
+        });
+      }
     } catch (err) {
       console.error("Error resolving request:", err);
     }
@@ -60,7 +65,7 @@ export default function RescueRequestPanel() {
             </div>
 
             <button 
-              onClick={() => resolveRequest(req.id)}
+              onClick={() => resolveRequest(req.id, req.guest_id)}
               className="btn" 
               style={{ width: '100%', fontSize: '0.6rem', padding: '0.4rem', background: 'var(--accent)', color: 'black' }}
             >

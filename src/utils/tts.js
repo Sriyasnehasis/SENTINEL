@@ -3,8 +3,66 @@
  * Optimized for natural-sounding, authoritative emergency broadcasts.
  */
 
-export const speakTactical = (text, language = 'en-US', onEnd) => {
+const playEarcon = (mode) => {
+  if (!window.AudioContext && !window.webkitAudioContext) return Promise.resolve();
+  
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  const now = ctx.currentTime;
+
+  if (mode === 'EMERGENCY' || mode === 'RESCUE') {
+    // Tactical tactical pulse: low authoritative frequency
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    
+    // Second pulse
+    const nextPulse = now + 0.2;
+    osc.frequency.setValueAtTime(120, nextPulse);
+    osc.frequency.exponentialRampToValueAtTime(40, nextPulse + 0.15);
+    
+    gain.gain.setValueAtTime(0, nextPulse);
+    gain.gain.linearRampToValueAtTime(0.1, nextPulse + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.01, nextPulse + 0.15);
+
+    osc.start(now);
+    osc.stop(now + 0.5);
+  } else {
+    // Nominal chime: harmonic and reassuring
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now); // A5
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.5); // A4
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+    osc.start(now);
+    osc.stop(now + 0.5);
+  }
+
+  return new Promise(resolve => {
+    setTimeout(() => {
+      ctx.close();
+      resolve();
+    }, 600);
+  });
+};
+
+export const speakTactical = async (text, language = 'en-US', mode = 'NOMINAL', onEnd) => {
   if (!window.speechSynthesis) return;
+
+  // 1. Play procedural earcon first
+  await playEarcon(mode);
 
   const startSpeech = () => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -22,9 +80,14 @@ export const speakTactical = (text, language = 'en-US', onEnd) => {
       utterance.voice = bestVoice;
     }
 
-    // Tactical tone adjustments
-    utterance.pitch = 0.95; // Slightly deeper, authoritative
-    utterance.rate = 0.9;   // Slightly slower, calmer for crisis clarity
+    // Dynamic Tactical adjustments based on mode
+    if (mode === 'EMERGENCY' || mode === 'RESCUE') {
+      utterance.pitch = 0.85; // Deeper, more authoritative
+      utterance.rate = 0.85;  // Slower for clarity in crisis
+    } else {
+      utterance.pitch = 1.0;  // Standard neutral pitch
+      utterance.rate = 0.95;  // Slightly faster, efficient but calm
+    }
 
     if (onEnd) utterance.onend = onEnd;
 
@@ -34,14 +97,12 @@ export const speakTactical = (text, language = 'en-US', onEnd) => {
   };
 
   // Chrome/Edge often load voices asynchronously. 
-  // If voices are empty, we need to wait or try again.
   if (window.speechSynthesis.getVoices().length === 0) {
     window.speechSynthesis.onvoiceschanged = () => {
       startSpeech();
-      window.speechSynthesis.onvoiceschanged = null; // Prevent multi-triggers
+      window.speechSynthesis.onvoiceschanged = null;
     };
   } else {
     startSpeech();
   }
 };
-

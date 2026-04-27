@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, onSnapshot, orderBy, query, limit, updateDoc, doc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { 
+  collection, onSnapshot, orderBy, query, limit, updateDoc, 
+  doc, serverTimestamp, deleteDoc, where, getDocs 
+} from "firebase/firestore";
 import { 
   Flame, Wind, UserX, Activity, Clock, MapPin, 
   AlertTriangle, Plus, X, Search, Edit2, Trash2,
@@ -182,11 +185,29 @@ export default function IncidentTable({ focusedIncidentId, onFocus }) {
 
   const handleStatusChange = (id, newStatus) => handleUpdate(id, { status: newStatus });
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (incident) => {
     const confirmed = window.confirm("⚠ PERMANENTLY REMOVE INCIDENT FROM LOG?");
     if (!confirmed) return;
     try {
-      await deleteDoc(doc(db, "incidents", id));
+      // 1. Clear guest mobility flag if guest_id is present
+      const deletions = [];
+      if (incident.guest_id) {
+        deletions.push(updateDoc(doc(db, "guests", incident.guest_id), {
+          mobility_assistance_required: false
+        }));
+      }
+
+      // 2. Find and delete associated rescue requests
+      const q = query(collection(db, "rescue_requests"), where("incident_id", "==", incident.id));
+      const rescueSnap = await getDocs(q);
+      rescueSnap.docs.forEach(rescueDoc => {
+        deletions.push(deleteDoc(rescueDoc.ref));
+      });
+      
+      await Promise.all(deletions);
+
+      // 3. Delete the incident itself
+      await deleteDoc(doc(db, "incidents", incident.id));
     } catch (err) {
       console.error("Failed to delete incident:", err);
       alert("Delete failed.");
@@ -281,8 +302,8 @@ export default function IncidentTable({ focusedIncidentId, onFocus }) {
             </div>
 
             {/* 2. Content Center */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
@@ -298,7 +319,8 @@ export default function IncidentTable({ focusedIncidentId, onFocus }) {
                   fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px', borderRadius: '2px',
                   background: inc.confidence > 0.9 ? 'rgba(0,255,159,0.1)' : 'rgba(255,255,255,0.05)',
                   color: inc.confidence > 0.9 ? 'var(--neon-green)' : 'var(--text-muted)',
-                  border: `1px solid ${inc.confidence > 0.9 ? 'var(--neon-green)44' : 'var(--border-dim)'}`
+                  border: `1px solid ${inc.confidence > 0.9 ? 'var(--neon-green)44' : 'var(--border-dim)'}`,
+                  whiteSpace: 'nowrap'
                 }}>
                   {inc.confidence > 0.9 ? "VERIFIED" : "AI_ESTIMATE"}
                 </span>
@@ -310,24 +332,26 @@ export default function IncidentTable({ focusedIncidentId, onFocus }) {
                   setEditingId(inc.id);
                   setEditingField('location');
                 }}
-                style={{ fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                style={{ fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                <MapPin size={12} color="var(--primary)" />
-                {inc.location?.zone?.toUpperCase() || "UNKNOWN_SECTOR"}
-                {inc.location?.floor !== undefined && <span style={{ opacity: 0.5, fontSize: '0.7rem' }}>[FLR_{inc.location.floor}]</span>}
+                <MapPin size={12} color="var(--primary)" style={{ flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {inc.location?.zone?.toUpperCase() || "UNKNOWN_SECTOR"}
+                  {inc.location?.floor !== undefined && <span style={{ opacity: 0.5, fontSize: '0.7rem', marginLeft: '4px' }}>[FLR_{inc.location.floor}]</span>}
+                </span>
               </div>
 
               {inc.description && (
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                   "{inc.description}"
                 </div>
               )}
 
               {/* Status Tags */}
-              <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
-                {isStale && <span style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(255,159,0,0.1)', color: 'var(--neon-orange)', fontWeight: 800, border: '1px solid var(--neon-orange)44' }}>⚠_STALE</span>}
-                {isSpreading && <span style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(255,0,85,0.1)', color: '#ff0055', fontWeight: 800, border: '1px solid #ff005544', animation: 'pulse 2s infinite' }}>EXPANDING</span>}
-                {inc.affected_nodes?.length > 0 && <span style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(0,245,255,0.1)', color: 'var(--primary)', fontWeight: 800, border: '1px solid var(--primary)44' }}>+{inc.affected_nodes.length}_ESCALATIONS</span>}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                {isStale && <span style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(255,159,0,0.1)', color: 'var(--neon-orange)', fontWeight: 800, border: '1px solid var(--neon-orange)44', whiteSpace: 'nowrap' }}>⚠_STALE</span>}
+                {isSpreading && <span style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(255,0,85,0.1)', color: '#ff0055', fontWeight: 800, border: '1px solid #ff005544', animation: 'pulse 2s infinite', whiteSpace: 'nowrap' }}>EXPANDING</span>}
+                {inc.affected_nodes?.length > 0 && <span style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(0,245,255,0.1)', color: 'var(--primary)', fontWeight: 800, border: '1px solid var(--primary)44', whiteSpace: 'nowrap' }}>+{inc.affected_nodes.length}_ESCALATIONS</span>}
               </div>
             </div>
 
@@ -365,7 +389,7 @@ export default function IncidentTable({ focusedIncidentId, onFocus }) {
                   style={{ color: 'var(--text-dim)', cursor: 'pointer', transition: 'color 0.2s' }}
                   onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dim)'}
-                  onClick={(e) => { e.stopPropagation(); handleDelete(inc.id); }}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(inc); }}
                 />
               </div>
             </div>

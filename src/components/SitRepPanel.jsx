@@ -70,13 +70,86 @@ export default function SitRepPanel({ focusedIncident }) {
       const nodeId = focusedIncident.location?.nodeId || "UNKNOWN";
       
       const procedures = {
-        FIRE: ["EVACUATE IMMEDIATELY", "SEAL FIRE DOORS", "ACTIVATE SPRINKLERS", "DISPATCH EMERGENCY RESPONSE"],
-        SMOKE: ["WEAR PROTECTIVE MASKS", "REDUCE VENTILATION", "INVESTIGATE SOURCE", "EVACUATE ADJACENT FLOORS"],
-        TRAPPED: ["INITIATE SEARCH AND RESCUE", "MAINTAIN COMMUNICATIONS", "DEPLOY LIFTING EQUIPMENT", "CLEAR ACCESS PATHS"],
-        MEDICAL: ["DISPATCH MEDICAL TEAM", "CLEAR AMBULANCE BAY", "PREPARE TRIAGE ZONE", "SECURE AREA FOR PRIVACY"],
-        INJURY: ["PROVIDE FIRST AID", "ASSESS SEVERITY", "REQUEST TRANSPORT", "STABILIZE PATIENT"],
-        PANIC: ["RESTORE ORDER", "USE CALMING ANNOUNCEMENTS", "SECURE EXITS", "MONITOR CROWD FLOW"],
-        MASS_CASUALTY: ["ACTIVATE MCI PROTOCOL", "ESTABLISH FIELD HOSPITAL", "REQUEST EXTERNAL AID", "TRIAGE ALL VICTIMS"]
+        FIRE: [
+          "EVACUATE ALL PERSONNEL IMMEDIATELY VIA STAIRWELLS",
+          "SEAL ALL FIRE DOORS — DO NOT USE ELEVATORS",
+          "ACTIVATE SUPPRESSION SYSTEMS (SPRINKLERS/CO2)",
+          "DISPATCH FIRE RESPONSE TEAM TO ZONE",
+          "NOTIFY MUNICIPAL FIRE DEPARTMENT",
+          "ISOLATE ELECTRICAL SUPPLY TO AFFECTED ZONE",
+          "ESTABLISH COMMAND POST AT SAFE PERIMETER",
+          "CONDUCT HEADCOUNT AT ASSEMBLY POINTS"
+        ],
+        SMOKE: [
+          "IDENTIFY SMOKE ORIGIN — DO NOT ENTER WITHOUT MASK",
+          "DISTRIBUTE N95/SMOKE MASKS TO PERSONNEL IN ZONE",
+          "REDUCE HVAC VENTILATION TO CONTAIN SPREAD",
+          "DEPLOY THERMAL IMAGING TO LOCATE FIRE SOURCE",
+          "EVACUATE ADJACENT FLOORS ABOVE SMOKE LEVEL",
+          "SEAL DOORWAYS WITH AVAILABLE MATERIAL",
+          "MONITOR AIR QUALITY READINGS CONTINUOUSLY",
+          "PREPARE EVACUATION FOR FULL WING IF SOURCE UNLOCATED"
+        ],
+        TRAPPED: [
+          "INITIATE ACTIVE SEARCH AND RESCUE OPERATION",
+          "ESTABLISH TWO-WAY COMMS WITH TRAPPED PERSONNEL",
+          "DEPLOY STRUCTURAL ASSESSMENT TEAM BEFORE ENTRY",
+          "DEPLOY HYDRAULIC LIFTING AND CUTTING EQUIPMENT",
+          "CLEAR AND SECURE ALL ACCESS PATHS TO ZONE",
+          "ESTABLISH MEDICAL STANDBY AT EXTRACTION POINT",
+          "MONITOR STRUCTURAL INTEGRITY OF SURROUNDING AREA",
+          "DOCUMENT VICTIM COUNT AND LAST KNOWN LOCATIONS"
+        ],
+        MEDICAL: [
+          "DISPATCH FIRST RESPONDERS AND PARAMEDIC TEAM",
+          "CLEAR PATH FROM INCIDENT ZONE TO MEDICAL BAY",
+          "PREPARE TRIAGE AREA — SET PRIORITY LEVELS",
+          "NOTIFY ON-CALL PHYSICIAN AND SPECIALIST UNITS",
+          "CLEAR AMBULANCE BAY FOR EMERGENCY VEHICLE ENTRY",
+          "SECURE SCENE FOR PATIENT PRIVACY AND DIGNITY",
+          "PREPARE DEFIBRILLATOR AND CRITICAL CARE SUPPLIES",
+          "INITIATE BLOOD TYPE VERIFICATION IF SURGERY NEEDED"
+        ],
+        INJURY: [
+          "APPLY IMMEDIATE FIRST AID — CONTROL BLEEDING",
+          "ASSESS INJURY SEVERITY (MINOR / SERIOUS / CRITICAL)",
+          "STABILIZE PATIENT — DO NOT MOVE IF SPINAL INJURY SUSPECTED",
+          "REQUEST EMERGENCY TRANSPORT (WHEELCHAIR / STRETCHER)",
+          "ALERT NEAREST MEDICAL STATION WITH PATIENT STATUS",
+          "DOCUMENT INJURY DETAILS FOR INCIDENT REPORT",
+          "MAINTAIN PATIENT CONSCIOUSNESS — REASSURE VERBALLY",
+          "CLEAR BYSTANDERS — MAINTAIN SCENE CONTROL"
+        ],
+        PANIC: [
+          "ACTIVATE CALM TONE PUBLIC ADDRESS ANNOUNCEMENT",
+          "DEPLOY SECURITY PERSONNEL TO CROWD CONTROL POINTS",
+          "SECURE ALL EXITS — PREVENT UNCONTROLLED STAMPEDE",
+          "IDENTIFY AND ISOLATE CAUSE OF PANIC IF POSSIBLE",
+          "ESTABLISH DESIGNATED SAFE ASSEMBLY ZONES",
+          "MONITOR CROWD FLOW WITH CCTV INTEGRATION",
+          "COORDINATE WITH MEDICAL FOR POTENTIAL INJURIES",
+          "BRIEF ALL FLOOR WARDENS ON SITUATION STATUS"
+        ],
+        MASS_CASUALTY: [
+          "DECLARE MCI — ACTIVATE HOSPITAL SURGE PROTOCOL",
+          "ESTABLISH FORWARD TRIAGE (START METHOD: RED/YELLOW/GREEN/BLACK)",
+          "DISPATCH ALL AVAILABLE MEDICAL UNITS TO SCENE",
+          "REQUEST MUTUAL AID FROM NEIGHBORING FACILITIES",
+          "ESTABLISH INCIDENT COMMAND SYSTEM (ICS)",
+          "ACTIVATE FAMILY REUNIFICATION CENTER",
+          "LOCK DOWN NON-ESSENTIAL AREAS TO FREE RESOURCES",
+          "DOCUMENT ALL VICTIMS — LOG TAGS AND TRANSPORT DESTINATIONS"
+        ],
+        SOS_SIGNAL: [
+          "CONFIRM SOS ORIGIN — VERIFY GUEST IDENTITY AND LOCATION",
+          "DISPATCH IMMEDIATE RESPONSE TEAM TO NODE",
+          "MAINTAIN VOICE/DATA UPLINK WITH GUEST DEVICE",
+          "ASSESS MEDICAL, SAFETY, OR ENTRAPMENT NEED",
+          "CLEAR EVACUATION CORRIDOR TO GUEST LOCATION",
+          "NOTIFY NEAREST FLOOR WARDEN OF SOS ACTIVATION",
+          "LOG INCIDENT WITH TIMESTAMP AND COORDINATES",
+          "ESCALATE TO EMERGENCY SERVICES IF NO CONTACT IN 2 MIN"
+        ]
       };
 
       return {
@@ -91,27 +164,108 @@ export default function SitRepPanel({ focusedIncident }) {
     return sitrep;
   }, [sitrep, focusedIncident]);
 
+  // ── Voice: rich per-incident tactical narrations ──────────────────────────
   const handleSpeak = () => {
     if (!effectiveSitRep) return;
-    
+
     let text = "";
     if (focusedIncident) {
       const type = focusedIncident.event_type;
       const loc  = focusedIncident.location?.zone || "Current Location";
-      
-      const templates = {
-        FIRE: `Emergency. Fire detected in ${loc}. Evacuate immediately via designated safe paths. Do not use elevators.`,
-        SMOKE: `Smoke reported in ${loc}. Protective masks required for entry. Reduce ventilation in the area.`,
-        TRAPPED: `Search and rescue required in ${loc}. High priority victims reported. Dispatching specialized units.`,
-        MEDICAL: `Medical emergency confirmed in ${loc}. Dispatching paramedics. Clear ambulance bay for arrival.`,
-        INJURY: `Injury reported at ${loc}. First aid team dispatched for assessment and stabilization.`,
-        PANIC: `Panic alert at ${loc}. Maintain calm. Use authorized exit routes only. Security is responding.`,
-        MASS_CASUALTY: `Critical. Mass casualty event confirmed at ${loc}. Triage protocol alpha is now active.`
+      const node = focusedIncident.location?.nodeId || "Unknown Node";
+      const flr  = focusedIncident.location?.floor !== undefined
+        ? ", Floor " + focusedIncident.location.floor : "";
+      const sev  = focusedIncident.confidence > 0.9 ? "Priority Zero" : "Priority One";
+
+      const voiceMap = {
+        FIRE: sev + " fire emergency confirmed at " + loc + flr + ", node " + node + ". "
+          + "All personnel must evacuate immediately via designated stairwells. "
+          + "Do not use elevators under any circumstances. Seal all fire doors upon exit. "
+          + "Suppression systems are being activated. The fire response team is being dispatched. "
+          + "Electrical supply to the affected sector is being isolated. "
+          + "All staff report to assembly points for immediate headcount. This is not a drill.",
+
+        SMOKE: sev + " smoke alert detected at " + loc + flr + ". "
+          + "Do not enter the affected zone without a protective mask. "
+          + "N95 respirators are being distributed to all zone personnel. "
+          + "HVAC ventilation is being reduced to prevent spread. "
+          + "Thermal imaging teams are en route to locate the fire source. "
+          + "Personnel on adjacent floors above smoke level must evacuate now. "
+          + "Seal door gaps where possible. Air quality is being monitored continuously. "
+          + "If the source is not located within five minutes, full wing evacuation will begin.",
+
+        TRAPPED: sev + " entrapment confirmed at " + loc + flr + ", node " + node + ". "
+          + "Search and rescue operations are now active. "
+          + "Teams are establishing two-way communication with trapped individuals. "
+          + "A structural assessment team is en route before entry. "
+          + "Hydraulic lifting and cutting equipment has been deployed. "
+          + "All access paths to the zone are being cleared and secured. "
+          + "Medical personnel are standing by at the extraction point. "
+          + "Structural integrity monitoring is active. All victims are being documented.",
+
+        MEDICAL: sev + " medical emergency confirmed at " + loc + flr + ". "
+          + "First responders and paramedic units are being dispatched immediately. "
+          + "Clear all corridors between the incident zone and the medical bay. "
+          + "Triage area is being established with priority classification in progress. "
+          + "On-call physician and specialist units have been notified. "
+          + "The ambulance bay is being cleared for emergency vehicle access. "
+          + "Defibrillator and critical care supplies are being prepared. "
+          + "Scene is secured for patient privacy. "
+          + "If surgical intervention is required, blood type verification is being initiated.",
+
+        INJURY: sev + " injury report confirmed at " + loc + flr + ". "
+          + "First aid is being administered immediately. Injury severity is being assessed. "
+          + "If spinal injury is suspected, do not move the patient. "
+          + "Emergency transport — wheelchair or stretcher — is being requested. "
+          + "The nearest medical station has been alerted with full patient status. "
+          + "Bystanders are being cleared from the scene. "
+          + "The patient is being verbally reassured and kept conscious. "
+          + "All injury details are being documented for the incident log.",
+
+        PANIC: sev + " panic situation reported at " + loc + flr + ". "
+          + "A calm-tone public address announcement is being broadcast to the zone. "
+          + "Security personnel are being deployed to all crowd control points immediately. "
+          + "All exits are being secured to prevent uncontrolled movement. "
+          + "The cause of the panic is being investigated and isolated. "
+          + "Designated safe assembly zones are being established. "
+          + "Crowd flow is being monitored through facility systems. "
+          + "Medical teams are on standby for any resulting injuries. "
+          + "All floor wardens are being briefed. Maintain calm and follow authorized exit routes only.",
+
+        MASS_CASUALTY: "Priority Zero. Mass Casualty Incident declared at " + loc + flr + ". "
+          + "Hospital surge protocol is now active. "
+          + "Forward triage is being established using the START method — Red, Yellow, Green, and Black classifications. "
+          + "All available medical units are being dispatched to the scene. "
+          + "Mutual aid has been requested from neighboring facilities. "
+          + "Incident Command System is now in operation. "
+          + "The family reunification center is being activated. "
+          + "Non-essential facility areas are being locked down to free critical resources. "
+          + "All victims are being tagged, logged, and their transport destinations recorded. "
+          + "This is a mass casualty event. All personnel follow emergency surge procedures immediately.",
+
+        SOS_SIGNAL: sev + " S-O-S signal received from " + loc + flr + ", node " + node + ". "
+          + "Guest identity and location are being verified. "
+          + "An immediate response team is being dispatched to the node. "
+          + "Voice and data uplink with the guest device is being established. "
+          + "The nature of the emergency — medical, safety, or entrapment — is being assessed. "
+          + "Evacuation corridors to the guest location are being cleared. "
+          + "The nearest floor warden has been notified of the S-O-S activation. "
+          + "The incident is being logged with full timestamp and coordinates. "
+          + "If contact is not established within two minutes, emergency services will be escalated. "
+          + "All personnel in the vicinity, assist if safe to do so."
       };
-      
-      text = templates[type] || `Emergency alert at ${loc}. Follow standard procedure for ${type}.`;
+
+      text = voiceMap[type]
+        || (sev + " emergency alert confirmed at " + loc + ". "
+          + "Incident type: " + type.replace(/_/g, " ") + ". "
+          + "All personnel follow standard emergency procedures for this incident category. "
+          + "Await further instructions from the command center.");
     } else {
-      text = `Severity ${effectiveSitRep.severity}. ${effectiveSitRep.threat_summary}. Recommended actions: ${effectiveSitRep.recommended_actions?.join(", ")}`;
+      const actions = effectiveSitRep.recommended_actions?.slice(0, 4).join(". ") || "";
+      text = "Severity " + effectiveSitRep.severity + ". "
+        + effectiveSitRep.threat_summary + ". "
+        + "Immediate recommended actions: " + actions + ". "
+        + "All personnel stand by for further directives.";
     }
 
     speakTactical(text);
