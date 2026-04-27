@@ -1,26 +1,87 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { UserPlus, Cpu, AlertCircle } from "lucide-react";
+import { db } from "../firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullname, setFullname] = useState("");
+  const [wing, setWing] = useState("MT");
+  const [floor, setFloor] = useState("0");
+  const [room, setRoom] = useState("");
+  const [language, setLanguage] = useState("ENGLISH");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+
+  const BUILDING_STRUCTURE = {
+    MT:  { name: "Main Tower", floors: ["0", "1", "2", "3", "4"], zones: ["East Hall", "West Hall", "Center"] },
+    ER:  { name: "ER Wing",    floors: ["0", "1", "2"],        zones: ["Admissions", "Surgical Hub", "Waiting"] },
+    ICU: { name: "ICU Wing",   floors: ["0", "1", "2", "3"],   zones: ["Central", "Recovery"] },
+    OPD: { name: "OPD Wing",   floors: ["0", "1", "2"],        zones: ["Pharmacy", "Clinics"] },
+  };
+  const { signup, login } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+    
+    if (password.length < 6) {
+      setError("SECURITY_ERROR: PASSWORD_TOO_WEAK (MIN 6 CHARS)");
+      return;
+    }
+
     try {
-      setError("");
       setLoading(true);
-      await signup(email, password);
+      let userCredential;
+
+      try {
+        userCredential = await signup(email, password);
+      } catch (authErr) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          try {
+            userCredential = await login(email, password);
+          } catch (loginErr) {
+            setError("AUTH_ERROR: INVALID_KEY_FOR_EXISTING_ID");
+            setLoading(false);
+            return;
+          }
+        } else {
+          throw authErr;
+        }
+      }
+      
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get('role');
+      
+      if (role === 'guest' || !role) {
+        const nodeId = `${wing}-${floor}-${room.replace(/\s+/g, '')}`;
+        
+        await setDoc(doc(db, "guests", userCredential.user.uid), {
+          email: email,
+          fullname: fullname || email.split('@')[0],
+          wing: wing,
+          floor: floor,
+          room: room,
+          nodeId: nodeId,
+          language: language,
+          mobility_assistance_required: false,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp()
+        }, { merge: true });
+      }
+      
       navigate("/");
     } catch (err) {
-      setError("REGISTRATION_ERROR: UPLINK_FAILED");
       console.error(err);
+      if (err.code === 'auth/invalid-email') {
+        setError("REGISTRATION_ERROR: INVALID_ID_FORMAT");
+      } else {
+        setError("REGISTRATION_ERROR: UPLINK_FAILED");
+      }
     }
     setLoading(false);
   }
@@ -60,7 +121,26 @@ export default function Signup() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div className="input-group">
-            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>ASSIGN_UPLINK_ID</label>
+            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>OPERATOR_NAME</label>
+            <input 
+              type="text" 
+              value={fullname} 
+              onChange={(e) => setFullname(e.target.value)} 
+              required 
+              placeholder="JOHN_DOE" 
+              style={{
+                width: '100%',
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid var(--border-tactical)',
+                padding: '0.8rem',
+                color: 'white',
+                fontFamily: 'JetBrains Mono',
+                fontSize: '0.85rem'
+              }}
+            />
+          </div>
+          <div className="input-group">
+            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>ASSIGN_UPLINK_ID (EMAIL)</label>
             <input 
               type="email" 
               value={email} 
@@ -79,7 +159,7 @@ export default function Signup() {
             />
           </div>
           <div className="input-group">
-            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>NEW_ACCESS_KEY</label>
+            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>NEW_ACCESS_KEY (PASSWORD)</label>
             <input 
               type="password" 
               value={password} 
@@ -96,6 +176,97 @@ export default function Signup() {
                 fontSize: '0.85rem'
               }}
             />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
+            <div className="input-group">
+              <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>BUILDING_WING</label>
+              <select 
+                value={wing} 
+                onChange={(e) => { setWing(e.target.value); setFloor(BUILDING_STRUCTURE[e.target.value].floors[0]); setRoom(""); }} 
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-tactical)',
+                  padding: '0.8rem',
+                  color: 'white',
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {Object.keys(BUILDING_STRUCTURE).map(w => (
+                  <option key={w} value={w}>{BUILDING_STRUCTURE[w].name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div className="input-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>FLOOR</label>
+                <select 
+                  value={floor} 
+                  onChange={(e) => setFloor(e.target.value)} 
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-tactical)',
+                    padding: '0.8rem',
+                    color: 'white',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {BUILDING_STRUCTURE[wing].floors.map(f => (
+                    <option key={f} value={f}>LEVEL_{f}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group" style={{ flex: 2 }}>
+                <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>SPECIFIC_ZONE</label>
+                <select 
+                  value={room} 
+                  onChange={(e) => setRoom(e.target.value)} 
+                  required
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-tactical)',
+                    padding: '0.8rem',
+                    color: 'white',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <option value="" disabled>SELECT_ZONE</option>
+                  {BUILDING_STRUCTURE[wing].zones.map(z => (
+                    <option key={z} value={z}>{z.toUpperCase()}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: '0.5rem', display: 'block' }}>PREFERED_LANGUAGE</label>
+              <select 
+                value={language} 
+                onChange={(e) => setLanguage(e.target.value)} 
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-tactical)',
+                  padding: '0.8rem',
+                  color: 'white',
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: '0.85rem'
+                }}
+              >
+                <option value="ENGLISH">ENGLISH</option>
+                <option value="SPANISH">SPANISH</option>
+                <option value="FRENCH">FRENCH</option>
+                <option value="HINDI">HINDI</option>
+              </select>
+            </div>
           </div>
           <button disabled={loading} type="submit" className="btn" style={{ width: '100%', marginTop: '1rem', height: '3rem' }}>
             <UserPlus size={16} />

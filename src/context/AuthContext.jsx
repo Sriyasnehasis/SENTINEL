@@ -5,13 +5,15 @@ import {
   signInWithEmailAndPassword, 
   signOut 
 } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { onSnapshot, doc } from "firebase/firestore";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [guestProfile, setGuestProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   function signup(email, password) {
@@ -27,17 +29,48 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    let unsubscribeProfile = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      setIsAdmin(currentUser?.email === "admin123@gmail.com");
+      const isAd = currentUser?.email === "admin123@gmail.com";
+      setIsAdmin(isAd);
+      
+      if (currentUser && !isAd) {
+        // Fetch guest profile with real-time listener
+        const docRef = doc(db, "guests", currentUser.uid);
+        
+        if (unsubscribeProfile) unsubscribeProfile();
+        
+        unsubscribeProfile = onSnapshot(docRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setGuestProfile(docSnap.data());
+          } else {
+            setGuestProfile(false); // Explicitly mark as missing
+          }
+        }, (err) => {
+          console.warn("Error in guest profile listener:", err);
+        });
+      } else {
+        setGuestProfile(null);
+        if (unsubscribeProfile) {
+          unsubscribeProfile();
+          unsubscribeProfile = null;
+        }
+      }
       setLoading(false);
     });
-    return unsubscribe;
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const value = {
     user,
     isAdmin,
+    guestProfile,
     signup,
     login,
     logout

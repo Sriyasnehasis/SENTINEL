@@ -109,6 +109,37 @@ const hospitalData = {
     "MT-5-RoofAccess":  { name: "Roof Access Hub",        type: "corridor",      floor: 5, wing: "Main Tower", coords: [0, 30, 0] },
     "MT-5-Helipad":     { name: "MedEvac Helipad",        type: "assembly",      floor: 5, wing: "Main Tower", coords: [0, 30, 0] },
     "Stair-A-5":        { name: "Stairwell A - Roof",     type: "stair",         floor: 5, coords: [20, 25, -14.5] },
+
+    // === ADDITIONAL UNIT ZONES (FOR REGISTRATION SYNC) ===
+    // MT Ground Aliases (for 0 vs G consistency)
+    "MT-0-Center":      { name: "MT Ground Center",      type: "corridor", floor: 0, wing: "Main Tower", coords: [0, 0, 0] },
+    "MT-0-EastHall":    { name: "MT Ground East",        type: "corridor", floor: 0, wing: "Main Tower", coords: [17, 0, 0] },
+    "MT-0-WestHall":    { name: "MT Ground West",        type: "corridor", floor: 0, wing: "Main Tower", coords: [-17, 0, 0] },
+
+    // ICU Recovery Nodes
+    "ICU-1-Recovery":   { name: "ICU Recovery F1",       type: "corridor", floor: 1, wing: "ICU Wing",   coords: [55, 5, 5] },
+    "ICU-2-Recovery":   { name: "ICU Recovery F2",       type: "corridor", floor: 2, wing: "ICU Wing",   coords: [55, 10, 5] },
+    "ICU-3-Recovery":   { name: "ICU Recovery F3",       type: "corridor", floor: 3, wing: "ICU Wing",   coords: [55, 15, 5] },
+    "ICU-4-Recovery":   { name: "ICU Recovery F4",       type: "corridor", floor: 4, wing: "ICU Wing",   coords: [55, 20, 5] },
+    
+    // ER Admissions/Waiting
+    "ER-0-Admissions":  { name: "ER Admissions Hall",    type: "corridor", floor: 0, wing: "ER Wing",    coords: [8, 0, -32] },
+    "ER-0-SurgicalHub": { name: "ER Surgical Hub G",     type: "corridor", floor: 0, wing: "ER Wing",    coords: [0, 0, -40] },
+    "ER-0-Waiting":     { name: "ER Waiting Lounge",     type: "corridor", floor: 0, wing: "ER Wing",    coords: [-8, 0, -32] },
+    "ER-1-Admissions":  { name: "ER Admissions F1",      type: "corridor", floor: 1, wing: "ER Wing",    coords: [8, 5, -32] },
+    "ER-1-Waiting":     { name: "ER Waiting F1",         type: "corridor", floor: 1, wing: "ER Wing",    coords: [-8, 5, -32] },
+    
+    // OPD Pharmacy/Clinics
+    "OPD-0-Pharmacy":   { name: "OPD Pharmacy Area",     type: "corridor", floor: 0, wing: "OPD Wing",   coords: [-50, 0, 10] },
+    "OPD-0-Clinics":    { name: "OPD Clinics Area",      type: "corridor", floor: 0, wing: "OPD Wing",   coords: [-50, 0, -10] },
+    "OPD-1-Pharmacy":   { name: "OPD Pharmacy F1",       type: "corridor", floor: 1, wing: "OPD Wing",   coords: [-50, 5, 10] },
+    "OPD-1-Clinics":    { name: "OPD Clinics F1",        type: "corridor", floor: 1, wing: "OPD Wing",   coords: [-50, 5, -10] },
+
+    // Additional floors for wing consistency
+    "ICU-0-Central":    { name: "ICU Ground Central",    type: "corridor", floor: 0, wing: "ICU Wing",   coords: [50, 0, 0] },
+    "ICU-0-Recovery":   { name: "ICU Ground Recovery",   type: "corridor", floor: 0, wing: "ICU Wing",   coords: [55, 0, 5] },
+    "ER-2-SurgicalHub": { name: "ER Surgical Hub F2",    type: "corridor", floor: 2, wing: "ER Wing",    coords: [0, 10, -40] },
+    "OPD-2-Corridor":   { name: "OPD Corridor F2",       type: "corridor", floor: 2, wing: "OPD Wing",   coords: [-45, 10, 0] },
   },
 
   // 2. EDGE DEFINITIONS (Clean Adjacency)
@@ -202,6 +233,42 @@ const hospitalData = {
     "Stair-C-ER-1": { "Stair-C-ER-G": 25, "ER-1-SurgicalHub": 10 },
     "Stair-OPD-G": { "OPD-G-Reception": 10, "Stair-OPD-1": 25 },
     "Stair-OPD-1": { "Stair-OPD-G": 25, "OPD-1-Corridor": 10 },
+
+    // Connections for new zones
+    "ICU-1-Recovery":   { "ICU-1-Central": 10 },
+    "ICU-2-Recovery":   { "ICU-2-Central": 10 },
+    "ICU-3-Recovery":   { "ICU-3-Central": 10 },
+    "ICU-4-Recovery":   { "ICU-4-Central": 10 },
+    "ICU-1-Central":    { "Bridge-MT-ICU-1": 20, "Stair-ICU-1": 10, "ICU-1-Recovery": 10 },
+    "ICU-2-Central":    { "Bridge-MT-ICU-2": 20, "Stair-ICU-2": 10, "ICU-2-Recovery": 10 },
+    "ICU-3-Central":    { "Bridge-MT-ICU-3": 20, "Stair-ICU-3": 10, "ICU-3-Recovery": 10 },
+    "ICU-4-Central":    { "Bridge-MT-ICU-4": 20, "Stair-ICU-4": 10, "ICU-4-Recovery": 10 },
+
+    "ER-0-Admissions":  { "ER-G-Entrance": 10 },
+    "ER-0-Waiting":     { "ER-G-Entrance": 10 },
+    "ER-G-Entrance":    { "MT-G-NorthHall": 20, "ER-G-Ambulance": 20, "ER-0-Admissions": 10, "ER-0-Waiting": 10 },
+    
+    "ER-1-Admissions":  { "ER-1-SurgicalHub": 10 },
+    "ER-1-Waiting":     { "ER-1-SurgicalHub": 10 },
+    "ER-1-SurgicalHub": { "Bridge-MT-ER-1": 15, "Stair-C-ER-1": 10, "ER-1-Admissions": 10, "ER-1-Waiting": 10 },
+
+    "OPD-0-Pharmacy":   { "OPD-G-Reception": 10 },
+    "OPD-0-Clinics":    { "OPD-G-Reception": 10 },
+    "OPD-G-Reception":  { "MT-G-WestHall": 30, "Stair-OPD-G": 10, "OPD-0-Pharmacy": 10, "OPD-0-Clinics": 10 },
+    
+    "OPD-1-Pharmacy":   { "OPD-1-Corridor": 10 },
+    "OPD-1-Clinics":    { "OPD-1-Corridor": 10 },
+    "OPD-1-Corridor":   { "Bridge-MT-OPD-1": 15, "Stair-OPD-1": 10, "OPD-1-Pharmacy": 10, "OPD-1-Clinics": 10 },
+
+    "MT-0-Center":      { "MT-G-Lobby": 10 },
+    "MT-0-EastHall":    { "MT-G-EastHall": 5 },
+    "MT-0-WestHall":    { "MT-G-WestHall": 5 },
+
+    // New floor connections
+    "ICU-0-Central":    { "ICU-0-Recovery": 10, "MT-G-EastHall": 33 },
+    "ICU-0-Recovery":   { "ICU-0-Central": 10 },
+    "ER-2-SurgicalHub": { "Stair-C-ER-1": 25 },
+    "OPD-2-Corridor":   { "Stair-OPD-1": 25 },
   }
 };
 
