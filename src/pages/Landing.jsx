@@ -81,7 +81,14 @@ export default function Landing() {
       <div style={{ display: 'flex', gap: '3rem', width: '100%', maxWidth: '900px', padding: '0 2rem' }}>
         <RoleCard 
           title="ADMIN"
-          desc="Tactical Command & Campus Oversight. Authorized personnel only."
+          desc={
+            <>
+              Tactical Command & Campus Oversight.<br/>
+              <span style={{ color: 'var(--primary)', fontWeight: 'bold', filter: 'brightness(1.5)' }}>
+                ID: admin123@gmail.com<br/>PW: admin123
+              </span>
+            </>
+          }
           icon={Shield}
           color="var(--primary)"
           onClick={() => navigate('/login?role=admin')}
